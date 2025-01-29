@@ -1,9 +1,12 @@
-name: Deploy
+name: Deploy e Verify
 
 on:
   push:
     branches:
       - main
+
+env:
+  NETWORK: sepolia
 
 jobs:
   deploy:
@@ -32,7 +35,31 @@ jobs:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }} # Chave privada como segredo
           INFURA_SEPOLIA_URL: ${{ secrets.INFURA_SEPOLIA_URL }} # URL RPC da Sepolia como segredo
           DEPLOYER_ADDRESS: ${{ secrets.DEPLOYER_ADDRESS }} # Endereço da carteira do deployer
-          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }} # Endereço da KEY da API do ETHERSCAN
           NAME_TOKEN: ${{ vars.NAME_TOKEN }} # Nome do token
           SYMBOL: ${{ vars.SYMBOL }} # Símbolo do token
-        run: npx hardhat run scripts/deploy.js --network sepolia
+        run: npx hardhat run scripts/deploy.js --network $NETWORK
+
+      - name: Upload contract addresses
+        id: upload
+        run: |
+          echo "LOGIC_CONTRACT_ADDRESS=$(cat deploy_logic_address.txt)" >> $GITHUB_OUTPUT
+          echo "PROXY_CONTRACT_ADDRESS=$(cat deploy_proxy_address.txt)" >> $GITHUB_OUTPUT
+
+  verify:
+    name: Verify Contracts
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      - name: Install dependencies
+        run: npm install
+
+      - name: Verify Contracts
+        env:
+          LOGIC_CONTRACT_ADDRESS: ${{ needs.deploy.outputs.LOGIC_CONTRACT_ADDRESS }}
+          PROXY_CONTRACT_ADDRESS: ${{ needs.deploy.outputs.PROXY_CONTRACT_ADDRESS }}
+          ADMIN_ADDRESS: ${{ secrets.DEPLOYER_ADDRESS }}
+          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+        run: node scripts/verify.js

@@ -1,4 +1,6 @@
 const { ethers } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 async function deployLogicContract() {
     console.log("Deploying CaDuCoinXToken...");
@@ -16,33 +18,6 @@ async function deployProxyContract(logicAddress, initializeData) {
     await proxy.deployed();
     console.log("CaDuCoinXTokenProxy deployed at:", proxy.address);
     return proxy;
-}
-
-async function verifyContract(contractAddress, logicAddress, initializeData) {
-    console.log("Verifying contract...");
-    try {
-        await run("verify:verify", {
-            address: contractAddress,
-            constructorArguments: [logicAddress, initializeData],
-        });
-        console.log("Contract verified successfully!");
-    } catch (error) {
-        console.error("Verification failed:", error);
-    }
-}
-
-
-async function verifyContract(contractAddress) {
-    console.log("Verifying contract...");
-    try {
-        await run("verify:verify", {
-            address: contractAddress,
-            constructorArguments: [],
-        });
-        console.log("Contract verified successfully!");
-    } catch (error) {
-        console.error("Verification failed:", error);
-    }
 }
 
 async function main() {
@@ -65,19 +40,28 @@ async function main() {
     // Deploy do proxy
     const proxy = await deployProxyContract(logic.address, initializeData);
 
-
-    // Verificar o contrato proxy
-    const verificationLogic = await verifyContract(logic.address);
-
-    // Verificar o contrato proxy
-    const verificationProxy = await verifyContract(proxy.address, logic.address, initializeData);
+    // Salvar endereços dos contratos
+    await saveContractAddresses(logic.address, proxy.address);
 
     // Exibir informações do deploy
+    console.log("Proxy proxy address:", proxy.address);
     console.log("Proxy logic address:", logic.address);
     console.log("Proxy initialized with:", initializeData);
-    
-    console.log("Verificação logic etherscan:", verificationLogic);
-    console.log("Verificação proxy etherscan:", verificationProxy);
+}
+
+async function saveContractAddresses(logicAddress, proxyAddress) {
+    const outputDir = path.join(__dirname, "deployments");
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    const logicAddressPath = path.join(outputDir, "deploy_logic_address.txt");
+    fs.writeFileSync(logicAddressPath, logicAddress);
+    console.log(`Logic contract address saved to: ${logicAddressPath}`);
+
+    const proxyAddressPath = path.join(outputDir, "deploy_proxy_address.txt");
+    fs.writeFileSync(proxyAddressPath, proxyAddress);
+    console.log(`Proxy contract address saved to: ${proxyAddressPath}`);
 }
 
 // Chamando a função principal com tratamento de erros
