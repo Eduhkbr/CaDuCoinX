@@ -41,7 +41,7 @@ async function main() {
     const proxy = await deployProxyContract(logic.address, initializeData);
 
     // Salvar endereços dos contratos
-    await saveContractAddresses(logic.address, proxy.address);
+    await saveContractAddresses(logic.address, proxy.address, initializeData);
 
     // Exibir informações do deploy
     console.log("Proxy proxy address:", proxy.address);
@@ -49,7 +49,7 @@ async function main() {
     console.log("Proxy initialized with:", initializeData);
 }
 
-async function saveContractAddresses(logicAddress, proxyAddress) {
+async function saveContractAddresses(logicAddress, proxyAddress, initializeData) {
     const outputDir = path.join(__dirname, "deployments");
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
@@ -62,6 +62,10 @@ async function saveContractAddresses(logicAddress, proxyAddress) {
     const proxyAddressPath = path.join(outputDir, "deploy_proxy_address.txt");
     fs.writeFileSync(proxyAddressPath, proxyAddress);
     console.log(`Proxy contract address saved to: ${proxyAddressPath}`);
+
+    const initDataPath = path.join(outputDir, "deploy_initialize_data.txt");
+    fs.writeFileSync(initDataPath, initializeData);
+    console.log(`Proxy initialization data saved to: ${initDataPath}`);
 }
 
 // Chamando a função principal com tratamento de erros
