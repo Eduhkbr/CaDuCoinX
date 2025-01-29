@@ -42,8 +42,8 @@ jobs:
       - name: Upload contract addresses
         id: upload
         run: |
-          echo "LOGIC_CONTRACT_ADDRESS=$(cat deploy_logic_address.txt)" >> $GITHUB_OUTPUT
-          echo "PROXY_CONTRACT_ADDRESS=$(cat deploy_proxy_address.txt)" >> $GITHUB_OUTPUT
+          echo "LOGIC_CONTRACT_ADDRESS=$(cat scripts/deployments/deploy_logic_address.txt)" >> $GITHUB_OUTPUT
+          echo "PROXY_CONTRACT_ADDRESS=$(cat scripts/deployments/deploy_proxy_address.txt)" >> $GITHUB_OUTPUT
 
   verify:
     name: Verify Contracts
