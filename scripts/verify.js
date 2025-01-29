@@ -1,4 +1,4 @@
-const { ethers } = require("hardhat");
+const run = require("../../../node_modules/@nomiclabs/hardhat-etherscan/src/internal/tasks/verify");
 
 async function verifyContract(contractAddress, constructorArgs = []) {
     try {
@@ -9,6 +9,7 @@ async function verifyContract(contractAddress, constructorArgs = []) {
         console.log(`Contract at ${contractAddress} verified successfully!`);
     } catch (error) {
         console.error(`Verification failed for contract at ${contractAddress}:`, error);
+        throw error;
     }
 }
 
