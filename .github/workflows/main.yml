@@ -1,0 +1,37 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: List dependencies
+        run: npm list @openzeppelin/hardhat-upgrades
+
+      - name: Reinstall upgrades
+        run: npm install --save-dev @openzeppelin/hardhat-upgrades
+
+      - name: Deploy contracts
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }} # Chave privada como segredo
+          INFURA_SEPOLIA_URL: ${{ secrets.INFURA_SEPOLIA_URL }} # URL RPC da Sepolia como segredo
+          DEPLOYER_ADDRESS: ${{ secrets.DEPLOYER_ADDRESS }} # Endereço da carteira do deployer
+          NAME_TOKEN: ${{ vars.NAME_TOKEN }} # Nome do token
+          SYMBOL: ${{ vars.SYMBOL }} # Símbolo do token
+        run: npx hardhat run scripts/deploy.js --network sepolia
