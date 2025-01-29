@@ -13,7 +13,7 @@ async function verifyContract(contractAddress, constructorArgs = []) {
 }
 
 async function main() {
-    if (!process.env.LOGIC_CONTRACT_ADDRESS || !process.env.PROXY_CONTRACT_ADDRESS || !process.env.ADMIN_ADDRESS) {
+    if (!process.env.LOGIC_CONTRACT_ADDRESS || !process.env.PROXY_CONTRACT_ADDRESS || !process.env.ADMIN_ADDRESS || !process.env.INITIALIZE_DATA) {
         throw new Error("Variáveis de ambiente necessárias não foram definidas.");
     }
 
