@@ -1,0 +1,30 @@
+{
+  "name": "caducoinx",
+  "version": "1.0.0",
+  "description": "## Token da Economia de Microtransações e Staking Inteligente",
+  "main": "hardhat.config.cjs",
+  "directories": {
+    "test": "tests"
+  },
+  "devDependencies": {
+    "@nomiclabs/hardhat-waffle": "^2.0.6",
+    "@openzeppelin/hardhat-upgrades": "^1.28.0",
+    "chai": "4.5.0",
+    "hardhat": "^2.22.17",
+    "mocha": "11.0.1"
+  },
+  "dependencies": {
+    "@ensdomains/ens-contracts": "1.2.2",
+    "@openzeppelin/contracts": "^5.1.0",
+    "@openzeppelin/contracts-upgradeable": "^5.1.0",
+    "dotenv": "^16.3.1",
+    "ethers": "^5.7.2",
+    "solc": "^0.8.28"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
