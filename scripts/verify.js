@@ -1,11 +1,8 @@
-const run = require("../../../node_modules/@nomiclabs/hardhat-etherscan/src/internal/tasks/verify");
+const { Etherscan } = require("@nomicfoundation/hardhat-verify/etherscan");
 
-async function verifyContract(contractAddress, constructorArgs = []) {
+async function verifyContract(instance, contractAddress, constructorArgs = []) {
     try {
-        await run("verify:verify", {
-            address: contractAddress,
-            constructorArguments: constructorArgs,
-        });
+        await instance.verify(contractAddress, constructorArgs);
         console.log(`Contract at ${contractAddress} verified successfully!`);
     } catch (error) {
         console.error(`Verification failed for contract at ${contractAddress}:`, error);
@@ -14,12 +11,23 @@ async function verifyContract(contractAddress, constructorArgs = []) {
 }
 
 async function main() {
-    if (!process.env.LOGIC_CONTRACT_ADDRESS || !process.env.PROXY_CONTRACT_ADDRESS || !process.env.ADMIN_ADDRESS || !process.env.INITIALIZE_DATA) {
+    if (!process.env.ETHERSCAN_API_KEY ||
+        !process.env.LOGIC_CONTRACT_ADDRESS ||
+        !process.env.PROXY_CONTRACT_ADDRESS ||
+        !process.env.ADMIN_ADDRESS ||
+        !process.env.INITIALIZE_DATA) {
         throw new Error("Variáveis de ambiente necessárias não foram definidas.");
     }
 
+    // Configurar a instância do Etherscan
+    const etherscanInstance = new Etherscan(
+        process.env.ETHERSCAN_API_KEY,
+        "https://api-sepolia.etherscan.io/api",
+        "https://sepolia.etherscan.io"
+    );
+
     // Verificar contrato lógico
-    await verifyContract(process.env.LOGIC_CONTRACT_ADDRESS);
+    await verifyContract(etherscanInstance, process.env.LOGIC_CONTRACT_ADDRESS);
 
     // Argumentos do construtor do proxy (endereço da lógica e do administrador)
     const constructorArgs = [
@@ -28,7 +36,7 @@ async function main() {
     ];
 
     // Verificar contrato proxy
-    await verifyContract(process.env.PROXY_CONTRACT_ADDRESS, constructorArgs);
+    await verifyContract(etherscanInstance, process.env.PROXY_CONTRACT_ADDRESS, constructorArgs);
 
     console.log("Verification completed for both contracts.");
 }
