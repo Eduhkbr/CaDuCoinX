@@ -14,8 +14,7 @@ async function main() {
     if (!process.env.ETHERSCAN_API_KEY ||
         !process.env.LOGIC_CONTRACT_ADDRESS ||
         !process.env.PROXY_CONTRACT_ADDRESS ||
-        !process.env.ADMIN_ADDRESS ||
-        !process.env.INITIALIZE_DATA) {
+        !process.env.ADMIN_ADDRESS) {
         throw new Error("Variáveis de ambiente necessárias não foram definidas.");
     }
 

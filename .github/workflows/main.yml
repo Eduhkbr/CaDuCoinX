@@ -56,7 +56,6 @@ jobs:
         env:
           LOGIC_CONTRACT_ADDRESS: ${{ vars.LOGIC_CONTRACT_ADDRESS }} 
           PROXY_CONTRACT_ADDRESS: ${{ vars.PROXY_CONTRACT_ADDRESS }}
-          INITIALIZE_DATA: ${{ vars.INITIALIZE_DATA }}
           ADMIN_ADDRESS: ${{ secrets.DEPLOYER_ADDRESS }}
           ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
