@@ -109,8 +109,9 @@ async function main() {
         console.log("Contracts already deployed:");
         console.log("CaDuCoinXToken Logic Address:", process.env.LOGIC_CONTRACT_ADDRESS);
         console.log("CaDuCoinXToken Proxy Address:", process.env.PROXY_CONTRACT_ADDRESS);
-        console.log("NFTMarketplaceUnified Address:", process.env.MARKETPLACE_CONTRACT_ADDRESS);
-        console.log("CaDuCoinXSaleUSDC Address:", process.env.USDC_CONTRACT_ADDRESS);
+        console.log("NFTMarketplaceUnified Address:", process.env.NTF_CONTRACT_ADDRESS);
+        console.log("ItemsMarketplaceUnified Address:", process.env.ITEM_CONTRACT_ADDRESS);
+        console.log("CaDuCoinXSaleUSDC Address:", process.env.SALE_CONTRACT_ADDRESS);
         console.log("Token initialized with:", process.env.INITIALIZE_DATA);
     }
 }
