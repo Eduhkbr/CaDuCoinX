@@ -38,7 +38,7 @@ async function deployCaDuCoinXSaleUSDCContract(logicAddress) {
         CaDuCoinXSaleUSDC,
         [
             logicAddress,
-            process.env.USDC_ADDRESS,
+            process.env.USDC_TOKEN_ADDRESS,
             process.env.TREASURY_ADDRESS,
             process.env.DEPLOYER_ADDRESS
         ],

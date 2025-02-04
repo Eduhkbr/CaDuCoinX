@@ -40,7 +40,7 @@ jobs:
           PAYMENT_TOKEN_ADDRESS: ${{ vars.PAYMENT_TOKEN_ADDRESS }} # Endereço do pagamento do usdc
           TREASURY_ADDRESS: ${{ vars.TREASURY_ADDRESS }} # Endereço do tesouro
           MARKETPLACE_CONTRACT_ADDRESS: ${{ vars.MARKETPLACE_CONTRACT_ADDRESS }} 
-          USDC_CONTRACT_ADDRESS: ${{ vars.USDC_CONTRACT_ADDRESS }} 
+          USDC_TOKEN_ADDRESS: ${{ vars.USDC_TOKEN_ADDRESS }} 
           LOGIC_CONTRACT_ADDRESS: ${{ vars.LOGIC_CONTRACT_ADDRESS }} 
           PROXY_CONTRACT_ADDRESS: ${{ vars.PROXY_CONTRACT_ADDRESS }}
         run: npx hardhat run scripts/deploy.js --network $NETWORK
