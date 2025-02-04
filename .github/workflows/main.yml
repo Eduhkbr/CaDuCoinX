@@ -37,6 +37,7 @@ jobs:
           DEPLOYER_ADDRESS: ${{ secrets.DEPLOYER_ADDRESS }} # Endereço da carteira do deployer
           NAME_TOKEN: ${{ vars.NAME_TOKEN }} # Nome do token
           SYMBOL: ${{ vars.SYMBOL }} # Símbolo do token
+          PAYMENT_TOKEN_ADDRESS: ${{ vars.PAYMENT_TOKEN_ADDRESS }} # Endereço do pagamento do usdc
           TREASURY_ADDRESS: ${{ vars.TREASURY_ADDRESS }} # Endereço do tesouro
           MARKETPLACE_CONTRACT_ADDRESS: ${{ vars.MARKETPLACE_CONTRACT_ADDRESS }} 
           USDC_CONTRACT_ADDRESS: ${{ vars.USDC_CONTRACT_ADDRESS }} 
