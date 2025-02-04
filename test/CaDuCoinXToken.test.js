@@ -4,11 +4,16 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("CaDuCoinXToken", function () {
-    let CaDuCoinXToken, CaDuCoinXTokenProxy, owner, addr1, addr2, deployer, token, proxy;
+    let owner, addr1, addr2, deployer, token, proxy;
 
     beforeEach(async function () {
         // Obter contas
         [owner, addr1, addr2, deployer] = await ethers.getSigners();
+
+        // Deploy do contrato gamificado
+        const TokenGamificado = await ethers.getContractFactory("GameToken");
+        tokenGame = await TokenGamificado.deploy();
+        await tokenGame.deployed();
 
         // Deploy do contrato lógico
         const TokenFactory = await ethers.getContractFactory("CaDuCoinXToken");
@@ -20,6 +25,7 @@ describe("CaDuCoinXToken", function () {
             owner.address,
             "CaDuCoinX",
             "CDX",
+            tokenGame.address
         ]);
 
         // Deploy do proxy

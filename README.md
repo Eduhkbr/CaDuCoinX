@@ -10,15 +10,18 @@
 
 ## 📌 Sumário
 
-1. [Características Principais](#características-principais)
-2. [Funcionalidades do Token](#funcionalidades-do-token)
-3. [Como Utilizar o CaDuCoinX](#como-utilizar-o-caducoinx)
-4. [Detalhes do Contrato](#detalhes-do-contrato)
-5. [Roadmap](#roadmap)
-6. [Contribuindo](#contribuindo)
-7. [Licença](#licença)
-8. [Agradecimentos](#agradecimentos)
-9. [Contato](#contato)
+1. [Características Principais](#-características-principais)
+2. [Funcionalidades do Token](#-funcionalidades-do-token)
+3. [Gamificação](#-gamificação)
+4. [Como Utilizar o CaDuCoinX](#-como-utilizar-o-caducoinx)
+5. [Deploy dos Contratos](#-deploy-dos-contratos)
+6. [Detalhes e Estrutura dos Contratos](#-detalhes-e-estrutura-dos-contratos)
+7. [CI/CD](#-cicd)
+8. [Roadmap](#-roadmap)
+9. [Contribuindo](#-contribuindo)
+10. [Licença](#-licença)
+11. [Agradecimentos](#-agradecimentos)
+12. [Contato](#-contato)
 
 ---
 
@@ -33,10 +36,26 @@
 
 ## ⚡ Funcionalidades do Token
 
-- **Staking**: Bloqueie seus tokens e ganhe recompensas passivas.
-- **Microtransações**: Ideal para pagamentos pequenos em jogos e plataformas digitais.
-- **Gamificação**: Sistema de recompensas em tokens para jogadores e usuários ativos.
-- **Investimento de Longo Prazo**: Modelo econômico sustentável com crescimento contínuo.
+- **Token ERC-20 Upgradável**: Utiliza OpenZeppelin para permitir atualizações via proxy.
+- **Staking com Recompensas**: Usuários podem bloquear tokens por períodos pré-determinados para receber recompensas.
+- **Taxa de Juros Dinâmica**: O proprietário pode ajustar a taxa de juros anual entre 4% e 10%.
+- **Pausabilidade**: O contrato pode ser pausado para evitar operações indesejadas.
+- **Mecanismo de Burn e Mint**: Tokens podem ser criados ou queimados pelo proprietário.
+- **Deploy Automatizado**: Suporte para Hardhat, Sepolia e integração com GitHub Actions.
+- **Gamificação**: Sistema de conquistas e recompensas baseado no engajamento dos usuários com staking e transações.
+
+---
+
+## 🎮 Gamificação
+
+O CaDuCoinXToken implementa um sistema de gamificação para incentivar a participação ativa dos usuários. As principais mecânicas incluem:
+
+- **Níveis de Staking**: Usuários acumulam experiência ao manter tokens bloqueados, subindo de nível para desbloquear melhores taxas de recompensa.
+- **Missões e Desafios**: Completar ações como staking contínuo por X dias ou realizar Y transações pode render tokens de bônus.
+- **Badges e Conquistas**: Usuários ganham distintivos por marcos atingidos, como primeiro staking, primeiro milhão de tokens movimentado, entre outros.
+- **Ranking de Usuários**: Um leaderboard exibe os usuários mais ativos e engajados na plataforma.
+- **Sistema de Cashback**: Parte das taxas geradas pode ser redistribuída como cashback para os usuários mais engajados.
+
 
 ---
 
