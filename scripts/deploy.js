@@ -1,12 +1,28 @@
+const { deploy } = require("@openzeppelin/hardhat-upgrades/dist/utils");
 const { ethers, upgrades } = require("hardhat");
 
-async function deployNFTMarketplaceUnifiedContract() {
+
+async function deployItemsMarketplaceUnifiedContract(logicAddress) {
+    console.log("Deploying ItemsMarketplaceUnified logic contract...");
+    const ItemsMarketplaceUnified = await ethers.getContractFactory("ItemsMarketplaceUnified");
+    // Inicializa com (paymentTokenAddress, owner)
+    const marketplace = await upgrades.deployProxy(
+        ItemsMarketplaceUnified,
+        [logicAddress, process.env.DEPLOYER_ADDRESS],
+        { initializer: "initialize" }
+    );
+    await marketplace.deployed();
+    console.log("ItemsMarketplaceUnified contract deployed at:", marketplace.address);
+    return marketplace;
+}
+
+async function deployNFTMarketplaceUnifiedContract(logicAddress) {
     console.log("Deploying NFTMarketplaceUnified logic contract...");
     const NFTMarketplaceUnified = await ethers.getContractFactory("NFTMarketplaceUnified");
     // Inicializa com (paymentTokenAddress, owner)
     const marketplace = await upgrades.deployProxy(
         NFTMarketplaceUnified,
-        [process.env.PAYMENT_TOKEN_ADDRESS, process.env.DEPLOYER_ADDRESS],
+        [logicAddress, process.env.DEPLOYER_ADDRESS],
         { initializer: "initialize" }
     );
     await marketplace.deployed();
@@ -14,14 +30,14 @@ async function deployNFTMarketplaceUnifiedContract() {
     return marketplace;
 }
 
-async function deployCaDuCoinXSaleUSDCContract() {
+async function deployCaDuCoinXSaleUSDCContract(logicAddress) {
     console.log("Deploying CaDuCoinXSaleUSDC logic contract...");
     const CaDuCoinXSaleUSDC = await ethers.getContractFactory("CaDuCoinXSaleUSDC");
     // Inicializa com (tokenAddress, usdcAddress, treasuryAddress, owner)
     const sale = await upgrades.deployProxy(
         CaDuCoinXSaleUSDC,
         [
-            process.env.CADUX_TOKEN_ADDRESS,
+            logicAddress,
             process.env.USDC_ADDRESS,
             process.env.TREASURY_ADDRESS,
             process.env.DEPLOYER_ADDRESS
@@ -74,7 +90,10 @@ async function main() {
         const proxy = await deployProxyContract(logic.address, initializeData);
 
         // Deploy do contrato NFTMarketplaceUnified
-        const marketplace = await deployNFTMarketplaceUnifiedContract();
+        const nftMarketplace = await deployNFTMarketplaceUnifiedContract(logic.address);
+
+        // Deploy do contrato NFTMarketplaceUnified
+        const itemsMarketplace = await deployItemsMarketplaceUnifiedContract(logic.address);
 
         // Deploy do contrato CaDuCoinXSaleUSDC
         const sale = await deployCaDuCoinXSaleUSDCContract();
@@ -82,7 +101,8 @@ async function main() {
         console.log("Deployment summary:");
         console.log("CaDuCoinXToken Logic Address:", logic.address);
         console.log("CaDuCoinXToken Proxy Address:", proxy.address);
-        console.log("NFTMarketplaceUnified Address:", marketplace.address);
+        console.log("NFTMarketplaceUnified Address:", nftMarketplace.address);
+        console.log("ItemsMarketplaceUnified Address:", itemsMarketplace.address);
         console.log("CaDuCoinXSaleUSDC Address:", sale.address);
         console.log("Token initialized with:", initializeData);
     } else {
