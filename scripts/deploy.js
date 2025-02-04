@@ -96,7 +96,7 @@ async function main() {
         const itemsMarketplace = await deployItemsMarketplaceUnifiedContract(logic.address);
 
         // Deploy do contrato CaDuCoinXSaleUSDC
-        const sale = await deployCaDuCoinXSaleUSDCContract();
+        const sale = await deployCaDuCoinXSaleUSDCContract(logic.address);
 
         console.log("Deployment summary:");
         console.log("CaDuCoinXToken Logic Address:", logic.address);
