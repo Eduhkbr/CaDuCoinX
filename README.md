@@ -1,10 +1,10 @@
-# CaDuCoinX (CDX) - Token para Microtransações e Staking
+# CaDuCoinX (CDX) - Token para Microtransações e Ecossistema Unificado
 
 [![GitHub license](https://img.shields.io/github/license/Eduhkbr/CaDuCoinX)](https://github.com/Eduhkbr/CaDuCoinX/blob/main/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/Eduhkbr/CaDuCoinX)](https://github.com/Eduhkbr/CaDuCoinX/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/Eduhkbr/CaDuCoinX)](https://github.com/Eduhkbr/CaDuCoinX/network/members)
 
-🚀 O **CaDuCoinX (CDX)** é um token ERC-20 projetado para revolucionar a economia de microtransações e oferecer uma nova forma de gerar rendimento através de staking. Construído na rede **Optimism**, uma Layer 2 de Ethereum, o CDX combina **baixos custos de transação**, **alta velocidade** e **sustentabilidade financeira** para criar uma experiência única no mercado de criptomoedas.
+🚀 O **CaDuCoinX (CDX)** é um token ERC-20 projetado para revolucionar a economia de microtransações e integrar ecossistemas de jogos. Construído na rede **Optimism**, uma Layer 2 de Ethereum, o CDX combina **baixos custos de transação**, **alta velocidade** e **sustentabilidade financeira**, proporcionando uma experiência única para desenvolvedores e jogadores. O projeto permite que jogos gerenciem créditos internamente e convertam esses créditos em tokens reais on-chain – sem necessidade de expor seus saldos à volatilidade dos mercados secundários.
 
 ---
 
@@ -12,50 +12,58 @@
 
 1. [Características Principais](#-características-principais)
 2. [Funcionalidades do Token](#-funcionalidades-do-token)
-3. [Gamificação](#-gamificação)
-4. [Como Utilizar o CaDuCoinX](#-como-utilizar-o-caducoinx)
-5. [Deploy dos Contratos](#-deploy-dos-contratos)
-6. [Detalhes e Estrutura dos Contratos](#-detalhes-e-estrutura-dos-contratos)
-7. [CI/CD](#-cicd)
-8. [Roadmap](#-roadmap)
-9. [Contribuindo](#-contribuindo)
-10. [Licença](#-licença)
-11. [Agradecimentos](#-agradecimentos)
-12. [Contato](#-contato)
+3. [Gamificação e Incentivos](#-gamificação-e-incentivos)
+4. [Marketplace Unificado de NFTs](#-marketplace-unificado-de-nfts)
+5. [Como Utilizar o CaDuCoinX](#-como-utilizar-o-caducoinx)
+6. [Deploy dos Contratos](#-deploy-dos-contratos)
+7. [Detalhes e Estrutura dos Contratos](#-detalhes-e-estrutura-dos-contratos)
+8. [CI/CD](#-cicd)
+9. [Roadmap](#-roadmap)
+10. [Contribuindo](#-contribuindo)
+11. [Licença](#-licença)
+12. [Agradecimentos](#-agradecimentos)
+13. [Contato](#-contato)
 
 ---
 
 ## 🚀 Características Principais
 
-- **Microtransações Baratas e Rápidas**: Com taxas de gás reduzidas na rede Optimism, o CDX é ideal para transações frequentes e pequenas.
-- **Staking com Rendimentos Atrativos**: Stake seu CDX por 3, 6, 9 ou 12 meses e ganhe recompensas de 4% a 10% ao ano.
-- **Integração em Jogos e Aplicativos**: Projeto gamificado para ser utilizado em jogos e plataformas de entretenimento.
-- **Governança e Segurança**: Contrato inteligente auditável e totalmente transparente.
+- **Microtransações Baratas e Rápidas**: Com taxas reduzidas na rede Optimism, o CDX é ideal para operações frequentes e de pequenos valores.
+- **Integração em Jogos e Aplicativos**: Permite que os jogos gerenciem créditos off-chain e só convertem para tokens on-chain quando necessário.
+- **Marketplace Unificado de NFTs**: Uma plataforma centralizada em que NFTs de diversos jogos podem ser listados e comercializados, usando o mesmo token para facilitar a interoperabilidade.
+- **Governança e Segurança**: Contrato inteligente auditável, utilizando padrões upgradeáveis via OpenZeppelin e UUPS para garantir flexibilidade e transparência.
 
 ---
 
 ## ⚡ Funcionalidades do Token
 
-- **Token ERC-20 Upgradável**: Utiliza OpenZeppelin para permitir atualizações via proxy.
-- **Staking com Recompensas**: Usuários podem bloquear tokens por períodos pré-determinados para receber recompensas.
-- **Taxa de Juros Dinâmica**: O proprietário pode ajustar a taxa de juros anual entre 4% e 10%.
-- **Pausabilidade**: O contrato pode ser pausado para evitar operações indesejadas.
-- **Mecanismo de Burn e Mint**: Tokens podem ser criados ou queimados pelo proprietário.
+- **Token ERC-20 Upgradável**: Permite atualizações futuras sem comprometer os dados.
+- **Mecanismo de Burn e Mint**: Criação e queima controlada de tokens, conforme demanda dos parceiros.
+- **Pausabilidade**: Possibilidade de pausar operações críticas em situações de emergência.
 - **Deploy Automatizado**: Suporte para Hardhat, Sepolia e integração com GitHub Actions.
-- **Gamificação**: Sistema de conquistas e recompensas baseado no engajamento dos usuários com staking e transações.
+- **Integração com Gamificação**: Funcionalidades que se interligam a sistemas off-chain de recompensa e fidelidade, sem sobrecarregar a liquidez.
 
 ---
 
-## 🎮 Gamificação
+## 🎮 Gamificação e Incentivos
 
-O CaDuCoinXToken implementa um sistema de gamificação para incentivar a participação ativa dos usuários. As principais mecânicas incluem:
+O CaDuCoinX promove um ecossistema em que programas de fidelidade e recompensas incentivam tanto os jogadores quanto os desenvolvedores sem impactar diretamente a liquidez on-chain.  
+Algumas estratégias incluem:
 
-- **Níveis de Staking**: Usuários acumulam experiência ao manter tokens bloqueados, subindo de nível para desbloquear melhores taxas de recompensa.
-- **Missões e Desafios**: Completar ações como staking contínuo por X dias ou realizar Y transações pode render tokens de bônus.
-- **Badges e Conquistas**: Usuários ganham distintivos por marcos atingidos, como primeiro staking, primeiro milhão de tokens movimentado, entre outros.
-- **Ranking de Usuários**: Um leaderboard exibe os usuários mais ativos e engajados na plataforma.
-- **Sistema de Cashback**: Parte das taxas geradas pode ser redistribuída como cashback para os usuários mais engajados.
+- **Programas de Pontos e Créditos Off-Chain**: Jogos podem criar sistemas internos para premiar jogadores com pontos que podem ser convertidos em benefícios ou descontos para aquisição de tokens.
+- **Campanhas Baseadas em Engajamento**: Bonificações e recompensas personalizadas, conforme o desempenho e fidelidade dos usuários.
+- **Integração Simples via SDK**: Ferramentas para que desenvolvedores integrem facilmente os sistemas de gamificação e fidelidade, sincronizando dados off-chain com transações on-chain quando necessário.
 
+---
+
+## 🖼️ Marketplace Unificado de NFTs
+
+Crie e participe de um ecossistema colaborativo onde:
+
+- NFTs de diversos jogos são listados em uma única plataforma.
+- Uma única conta pode armazenar e gerenciar ativos de múltiplos jogos.
+- As transações são realizadas com o mesmo token, garantindo uma economia unificada e estável.
+- Essa abordagem elimina a complicação de lidar com múltiplas moedas e expõe os ativos a um mercado com maior liquidez.
 
 ---
 
@@ -123,19 +131,21 @@ npx hardhat run scripts/deploy.js --network sepolia
 
 ### **Q1: Lançamento do Token**
 - Lançamento do contrato inteligente na rede Optimism.
-- Listagem em pequenas exchanges e DEXs.
+- Parceria com early adopters e integração inicial com jogos-piloto.
 
 ### **Q2: Integração em Jogos**
-- Parcerias com estúdios de jogos independentes.
-- Lançamento de um jogo piloto utilizando o CDX.
+- Implementação do fluxo off-chain para conversão de créditos em tokens.
+- Lançamento do SDK para integração dos sistemas de fidelidade e gamificação.
+- Implementação do contrato de venda direta com USDC.
 
 ### **Q3: Expansão do Ecossistema**
-- Integração com plataformas de streaming e entretenimento.
-- Desenvolvimento de uma wallet oficial do projeto.
+- Desenvolvimento e lançamento do marketplace que agrega NFTs de diversos jogos.
+- Parcerias estratégicas para ampliação do ecossistema.
 
 ### **Q4: Escalabilidade e Novos Mercados**
+- Integração com plataformas de streaming e entretenimento.
+- Evolução do ecossistema com funcionalidades adicionais (royalties, leilões, etc.).
 - Expansão para outras redes (ex: Polygon, Solana).
-- Entrada em mercados emergentes e tradicionais.
 
 ---
 

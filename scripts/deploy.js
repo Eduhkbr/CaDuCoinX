@@ -36,7 +36,7 @@ async function main() {
     }
 
     // Validando se é necessário a realização da etapa de deploy
-    if(!process.env.LOGIC_CONTRACT_ADDRESS && !process.env.GAME_CONTRACT_ADDRESS) {
+    if(!process.env.LOGIC_CONTRACT_ADDRESS || !process.env.GAME_CONTRACT_ADDRESS) {
 
         // Deploy do contrato gamificado
         const gameToken = await deployGameTokenContract();
