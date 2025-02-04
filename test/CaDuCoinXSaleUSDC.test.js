@@ -13,7 +13,7 @@ describe("CaDuCoinXSaleUSDC", function () {
     const CaDuCoinXToken = await ethers.getContractFactory("CaDuCoinXToken");
     token = await upgrades.deployProxy(
       CaDuCoinXToken,
-      [owner.address, "CaDuCoinX", "CDX", owner.address],
+      [owner.address, "CaDuCoinX", "CDX"],
       { initializer: "initialize" }
     );
     await token.deployed();

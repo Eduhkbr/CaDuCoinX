@@ -3,7 +3,7 @@ name: Deploy e Verify
 on:
   push:
     branches:
-      - main
+      - feature/gamificacao
 
 env:
   NETWORK: sepolia
@@ -36,8 +36,10 @@ jobs:
           INFURA_SEPOLIA_URL: ${{ secrets.INFURA_SEPOLIA_URL }} # URL RPC da Sepolia como segredo
           DEPLOYER_ADDRESS: ${{ secrets.DEPLOYER_ADDRESS }} # Endereço da carteira do deployer
           NAME_TOKEN: ${{ vars.NAME_TOKEN }} # Nome do token
-          SYMBOL: ${{ vars.SYMBOL }} # Símbolo do token GAME_CONTRACT_ADDRESS
-          GAME_CONTRACT_ADDRESS: ${{ vars.GAME_CONTRACT_ADDRESS }} 
+          SYMBOL: ${{ vars.SYMBOL }} # Símbolo do token
+          TREASURY_ADDRESS: ${{ vars.TREASURY_ADDRESS }} # Endereço do tesouro
+          MARKETPLACE_CONTRACT_ADDRESS: ${{ vars.MARKETPLACE_CONTRACT_ADDRESS }} 
+          USDC_CONTRACT_ADDRESS: ${{ vars.USDC_CONTRACT_ADDRESS }} 
           LOGIC_CONTRACT_ADDRESS: ${{ vars.LOGIC_CONTRACT_ADDRESS }} 
           PROXY_CONTRACT_ADDRESS: ${{ vars.PROXY_CONTRACT_ADDRESS }}
         run: npx hardhat run scripts/deploy.js --network $NETWORK

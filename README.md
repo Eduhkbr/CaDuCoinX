@@ -1,10 +1,11 @@
 # CaDuCoinX (CDX) - Token para Microtransações e Ecossistema Unificado
 
-[![GitHub license](https://img.shields.io/github/license/Eduhkbr/CaDuCoinX)](https://github.com/Eduhkbr/CaDuCoinX/blob/main/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/Eduhkbr/CaDuCoinX)](https://github.com/Eduhkbr/CaDuCoinX/stargazers)
+[![GitHub license](https://img.shields.io/github/license/Eduhkbr/CaDuCoinX)](https://github.com/Eduhkbr/CaDuCoinX/blob/main/LICENSE)  
+[![GitHub stars](https://img.shields.io/github/stars/Eduhkbr/CaDuCoinX)](https://github.com/Eduhkbr/CaDuCoinX/stargazers)  
 [![GitHub forks](https://img.shields.io/github/forks/Eduhkbr/CaDuCoinX)](https://github.com/Eduhkbr/CaDuCoinX/network/members)
 
-🚀 O **CaDuCoinX (CDX)** é um token ERC-20 projetado para revolucionar a economia de microtransações e integrar ecossistemas de jogos. Construído na rede **Optimism**, uma Layer 2 de Ethereum, o CDX combina **baixos custos de transação**, **alta velocidade** e **sustentabilidade financeira**, proporcionando uma experiência única para desenvolvedores e jogadores. O projeto permite que jogos gerenciem créditos internamente e convertam esses créditos em tokens reais on-chain – sem necessidade de expor seus saldos à volatilidade dos mercados secundários.
+🚀 **CaDuCoinX (CDX)** é um token ERC-20 projetado para revolucionar a economia de microtransações e integrar ecossistemas de jogos. Construído na rede **Optimism**, uma Layer 2 do Ethereum, o CDX combina **taxas baixas**, **transações rápidas** e **sustentabilidade financeira**, proporcionando uma experiência única para desenvolvedores e jogadores.  
+O projeto permite que os jogos gerenciem créditos off-chain e os convertam em tokens reais on-chain – sem expor os saldos à volatilidade dos mercados –, além de oferecer marketplaces especializados para NFTs e itens.
 
 ---
 
@@ -13,139 +14,112 @@
 1. [Características Principais](#-características-principais)
 2. [Funcionalidades do Token](#-funcionalidades-do-token)
 3. [Gamificação e Incentivos](#-gamificação-e-incentivos)
-4. [Marketplace Unificado de NFTs](#-marketplace-unificado-de-nfts)
-5. [Como Utilizar o CaDuCoinX](#-como-utilizar-o-caducoinx)
-6. [Deploy dos Contratos](#-deploy-dos-contratos)
-7. [Detalhes e Estrutura dos Contratos](#-detalhes-e-estrutura-dos-contratos)
-8. [CI/CD](#-cicd)
-9. [Roadmap](#-roadmap)
-10. [Contribuindo](#-contribuindo)
-11. [Licença](#-licença)
-12. [Agradecimentos](#-agradecimentos)
-13. [Contato](#-contato)
+4. [Marketplaces Unificados](#-marketplaces-unificados)
+   - [NFT Marketplace](#nft-marketplace)
+   - [Items Marketplace](#items-marketplace)
+5. [Detalhes e Estrutura dos Contratos](#-detalhes-e-estrutura-dos-contratos)
+6. [CI/CD](#-cicd)
+7. [Roadmap](#-roadmap)
+8. [Contribuindo](#-contribuindo)
+9. [Licença](#-licença)
+10. [Agradecimentos](#-agradecimentos)
+11. [Contato](#-contato)
 
 ---
 
 ## 🚀 Características Principais
 
-- **Microtransações Baratas e Rápidas**: Com taxas reduzidas na rede Optimism, o CDX é ideal para operações frequentes e de pequenos valores.
-- **Integração em Jogos e Aplicativos**: Permite que os jogos gerenciem créditos off-chain e só convertem para tokens on-chain quando necessário.
-- **Marketplace Unificado de NFTs**: Uma plataforma centralizada em que NFTs de diversos jogos podem ser listados e comercializados, usando o mesmo token para facilitar a interoperabilidade.
-- **Governança e Segurança**: Contrato inteligente auditável, utilizando padrões upgradeáveis via OpenZeppelin e UUPS para garantir flexibilidade e transparência.
+- **Microtransações Eficientes:** Aproveite as taxas reduzidas e a alta velocidade da rede Optimism.
+- **Integração em Jogos:** Converte créditos off-chain em tokens on-chain, minimizando a exposição à volatilidade dos mercados.
+- **Marketplaces Especializados:**  
+  - **NFT Marketplace Unificado:** Plataforma para listagem e negociação de NFTs de diversos jogos com o mesmo token.  
+  - **Items Marketplace Unificado:** Mercado dedicado à comercialização de itens e outros ativos digitais.
+- **Governança e Segurança:** Contratos inteligentes auditáveis e upgradeáveis (padrão UUPS) para robustez e flexibilidade.
 
 ---
 
 ## ⚡ Funcionalidades do Token
 
-- **Token ERC-20 Upgradável**: Permite atualizações futuras sem comprometer os dados.
-- **Mecanismo de Burn e Mint**: Criação e queima controlada de tokens, conforme demanda dos parceiros.
-- **Pausabilidade**: Possibilidade de pausar operações críticas em situações de emergência.
-- **Deploy Automatizado**: Suporte para Hardhat, Sepolia e integração com GitHub Actions.
-- **Integração com Gamificação**: Funcionalidades que se interligam a sistemas off-chain de recompensa e fidelidade, sem sobrecarregar a liquidez.
+- **Token ERC-20 Upgradável:** Baseado em OpenZeppelin para permitir atualizações futuras sem perda de dados.
+- **Mecanismo de Mint e Burn:** Criação e queima controlada de tokens, com limites definidos e regras de AccessControl.
+- **Pausabilidade:** Possibilidade de interromper operações críticas em situações de emergência.
+- **Integração com Gamificação:**  
+  - Funções internas de levelUp e armazenamento de dados (níveis) dos jogadores.
+- **Deploy Automatizado:** Suporte para Hardhat, rede OP Sepolia e integração contínua via GitHub Actions.
 
 ---
 
 ## 🎮 Gamificação e Incentivos
 
-O CaDuCoinX promove um ecossistema em que programas de fidelidade e recompensas incentivam tanto os jogadores quanto os desenvolvedores sem impactar diretamente a liquidez on-chain.  
-Algumas estratégias incluem:
-
-- **Programas de Pontos e Créditos Off-Chain**: Jogos podem criar sistemas internos para premiar jogadores com pontos que podem ser convertidos em benefícios ou descontos para aquisição de tokens.
-- **Campanhas Baseadas em Engajamento**: Bonificações e recompensas personalizadas, conforme o desempenho e fidelidade dos usuários.
-- **Integração Simples via SDK**: Ferramentas para que desenvolvedores integrem facilmente os sistemas de gamificação e fidelidade, sincronizando dados off-chain com transações on-chain quando necessário.
+O ecossistema CaDuCoinX promove programas de fidelidade e recompensas para incentivar jogadores e desenvolvedores:
+- **Programas de Pontos e Créditos Off-Chain:** Jogos podem gerenciar créditos internamente e convertê-los em tokens quando necessário.
+- **Campanhas de Engajamento:** Bonificações e recompensas personalizadas conforme o desempenho dos jogadores.
+- **Facilidade de Integração:** SDKs e APIs disponíveis para sincronizar dados off-chain com as transações on-chain.
 
 ---
 
-## 🖼️ Marketplace Unificado de NFTs
+## 🛒 Marketplaces Unificados
 
-Crie e participe de um ecossistema colaborativo onde:
+O ecossistema conta com marketplaces especializados para ativos digitais:
 
-- NFTs de diversos jogos são listados em uma única plataforma.
-- Uma única conta pode armazenar e gerenciar ativos de múltiplos jogos.
-- As transações são realizadas com o mesmo token, garantindo uma economia unificada e estável.
-- Essa abordagem elimina a complicação de lidar com múltiplas moedas e expõe os ativos a um mercado com maior liquidez.
+### NFT Marketplace
+- Plataforma centralizada para listagem e negociação de NFTs de vários jogos.
+- Transações realizadas utilizando o mesmo token, promovendo interoperabilidade e liquidez.
 
----
-
-## 📖 Como Utilizar o CaDuCoinX
-
-### 1️⃣ Instalação
-
-Para começar a contribuir ou utilizar o projeto, siga os passos abaixo:
-
-```bash
-git clone https://github.com/Eduhkbr/CaDuCoinX.git
-cd CaDuCoinX
-npm install
-```
-
-### 2️⃣ Configuração
-
-Crie um arquivo `.env` com as seguintes variáveis:
-
-```env
-PRIVATE_KEY=your_private_key
-INFURA_SEPOLIA_URL=your_infura_url
-DEPLOYER_ADDRESS=your_deployer_address
-TAX_ADDRESS=your_tax_address
-NAME_TOKEN="CaDuCoinX"
-SYMBOL="CDX"
-```
-
+### Items Marketplace
+- Mercado dedicado à comercialização de itens e ativos digitais não-NFT.
+- Regras customizadas para precificação e integração com sistemas de jogos.
 
 ---
 
-## 🛠️ Deploy dos Contratos
+## 📜 Detalhes e Estrutura dos Contratos
 
-- **Para implantar os contratos na rede Sepolia, execute:**: 
-```
-npx hardhat run scripts/deploy.js --network sepolia
-```
+- **CaDuCoinXToken:**  
+  - Baseado em ERC-20 com funcionalidades integradas de gamificação (levelUp, dados dos jogadores) e controle de mint/burn via AccessControl.  
+  - Utiliza o padrão UUPS para upgrade com proxy.
 
----
+- **NFTMarketplaceUnified:**  
+  - Contrato upgradeable para listagem, compra e delistagem de NFTs.  
+  - Implementa a interface `IMarketplace` para operações padronizadas.
 
-## 📜 Detalhes do Contrato
+- **ItemsMarketplaceUnified:**  
+  - Contrato upgradeable dedicado à comercialização de itens.  
+  - Também implementa a interface `IMarketplace`.
 
-- **Contract Address**: `0x...`
-- **Rede**: Optimism (Chain ID: 69)
-- **Etherscan**: [Verificar no Etherscan](#)
+- **CaDuCoinXSaleUSDC:**  
+  - Permite a venda direta de tokens utilizando USDC.  
+  - Configurado para que 1 token custe 0,0086 USDC (tokenPrice = 8600, considerando USDC com 6 decimais).
 
----
-
-## 📜 Estrutura dos Contratos
-
-- **Baseado no ERC-20 da OpenZeppelin com funcionalidades adicionais de staking e burn/mint.**
-- **Utiliza padrões de contrato upgradável da OpenZeppelin**
-- **Implementa o padrão de proxy UUPS para permitir upgrades futuros**
+- **CaDuCoinXTokenProxy:**  
+  - Proxy para o contrato CaDuCoinXToken, permitindo upgrades sem perda de dados.
 
 ---
-
 
 ## 🔄 CI/CD
 
-- O repositório inclui um fluxo de GitHub Actions (`.github/workflows/main.yml`) para deploy automatizado na rede Sepolia.
+O repositório conta com um fluxo de GitHub Actions configurado em `.github/workflows/main.yml` para deploy automatizado, testes e integração contínua na rede OP Sepolia.
 
 ---
 
 ## 🛣️ Roadmap
 
 ### **Q1: Lançamento do Token**
-- Lançamento do contrato inteligente na rede Optimism.
-- Parceria com early adopters e integração inicial com jogos-piloto.
+- Deploy inicial do contrato CaDuCoinXToken na rede Optimism.
+- Parcerias com early adopters e integração piloto com jogos.
 
 ### **Q2: Integração em Jogos**
 - Implementação do fluxo off-chain para conversão de créditos em tokens.
-- Lançamento do SDK para integração dos sistemas de fidelidade e gamificação.
-- Implementação do contrato de venda direta com USDC.
+- Lançamento do SDK para integração dos sistemas de gamificação e fidelidade.
+- Deploy do contrato CaDuCoinXSaleUSDC para venda direta de tokens via USDC.
 
 ### **Q3: Expansão do Ecossistema**
-- Desenvolvimento e lançamento do marketplace que agrega NFTs de diversos jogos.
-- Parcerias estratégicas para ampliação do ecossistema.
+- Desenvolvimento e lançamento dos marketplaces (NFT e Items Unificados).  
+- Parcerias estratégicas para ampliar o alcance do ecossistema.
 
 ### **Q4: Escalabilidade e Novos Mercados**
 - Integração com plataformas de streaming e entretenimento.
-- Evolução do ecossistema com funcionalidades adicionais (royalties, leilões, etc.).
-- Expansão para outras redes (ex: Polygon, Solana).
+- Funcionalidades adicionais (royalties, leilões, etc.) nos marketplaces.
+- Expansão para outras redes, como Polygon e Solana.
 
 ---
 
@@ -153,7 +127,6 @@ npx hardhat run scripts/deploy.js --network sepolia
 
 1. Fork o repositório.
 2. Crie uma branch para suas alterações:
-
    ```bash
    git checkout -b feature/nova-funcionalidade
    ```

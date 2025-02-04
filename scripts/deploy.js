@@ -1,21 +1,44 @@
-const { ethers } = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 
+async function deployNFTMarketplaceUnifiedContract() {
+    console.log("Deploying NFTMarketplaceUnified logic contract...");
+    const NFTMarketplaceUnified = await ethers.getContractFactory("NFTMarketplaceUnified");
+    // Inicializa com (paymentTokenAddress, owner)
+    const marketplace = await upgrades.deployProxy(
+        NFTMarketplaceUnified,
+        [process.env.PAYMENT_TOKEN_ADDRESS, process.env.DEPLOYER_ADDRESS],
+        { initializer: "initialize" }
+    );
+    await marketplace.deployed();
+    console.log("NFTMarketplaceUnified contract deployed at:", marketplace.address);
+    return marketplace;
+}
 
-async function deployGameTokenContract() {
-    console.log("Deploying GameToken...");
-    const gameToken = await ethers.getContractFactory("GameToken");
-    const game = await gameToken.deploy();
-    await game.deployed();
-    console.log("GameToken deployed at:", game.address);
-    return game;
+async function deployCaDuCoinXSaleUSDCContract() {
+    console.log("Deploying CaDuCoinXSaleUSDC logic contract...");
+    const CaDuCoinXSaleUSDC = await ethers.getContractFactory("CaDuCoinXSaleUSDC");
+    // Inicializa com (tokenAddress, usdcAddress, treasuryAddress, owner)
+    const sale = await upgrades.deployProxy(
+        CaDuCoinXSaleUSDC,
+        [
+            process.env.CADUX_TOKEN_ADDRESS,
+            process.env.USDC_ADDRESS,
+            process.env.TREASURY_ADDRESS,
+            process.env.DEPLOYER_ADDRESS
+        ],
+        { initializer: "initialize" }
+    );
+    await sale.deployed();
+    console.log("CaDuCoinXSaleUSDC contract deployed at:", sale.address);
+    return sale;
 }
 
 async function deployLogicContract() {
-    console.log("Deploying CaDuCoinXToken...");
+    console.log("Deploying CaDuCoinXToken logic contract...");
     const CaDuCoinXToken = await ethers.getContractFactory("CaDuCoinXToken");
     const logic = await CaDuCoinXToken.deploy();
     await logic.deployed();
-    console.log("CaDuCoinXToken deployed at:", logic.address);
+    console.log("CaDuCoinXToken logic contract deployed at:", logic.address);
     return logic;
 }
 
@@ -29,48 +52,49 @@ async function deployProxyContract(logicAddress, initializeData) {
 }
 
 async function main() {
-    // Validando variáveis de ambiente
-    if (!process.env.DEPLOYER_ADDRESS || !process.env.NAME_TOKEN 
-        || !process.env.SYMBOL) {
-        throw new Error("Variáveis de ambiente necessárias não foram definidas.");
+    // Valida as variáveis de ambiente necessárias para o token
+    if (!process.env.DEPLOYER_ADDRESS || !process.env.NAME_TOKEN || !process.env.SYMBOL) {
+        throw new Error("Variáveis de ambiente necessárias não foram definidas: DEPLOYER_ADDRESS, NAME_TOKEN e SYMBOL.");
     }
-
-    // Validando se é necessário a realização da etapa de deploy
-    if(!process.env.LOGIC_CONTRACT_ADDRESS || !process.env.GAME_CONTRACT_ADDRESS) {
-
-        // Deploy do contrato gamificado
-        const gameToken = await deployGameTokenContract();
-
-        // Deploy do contrato lógico
+    
+    // Se não houver um endereço do contrato lógico pré-existente, realize o deploy de todos os contratos
+    if (!process.env.LOGIC_CONTRACT_ADDRESS) {
+        // Deploy do contrato lógico do token
         const logic = await deployLogicContract();
 
-        // Codificar os dados de inicialização
+        // Codificar dados de inicialização para o token: initialize(owner, name, symbol)
         const CaDuCoinXToken = await ethers.getContractFactory("CaDuCoinXToken");
         const initializeData = CaDuCoinXToken.interface.encodeFunctionData("initialize", [
             process.env.DEPLOYER_ADDRESS,
             process.env.NAME_TOKEN,
-            process.env.SYMBOL,
-            gameToken.address
+            process.env.SYMBOL
         ]);
-
-        // Deploy do proxy
+        
+        // Deploy do proxy do token
         const proxy = await deployProxyContract(logic.address, initializeData);
 
-        // Exibir informações do deploy
-        console.log("Proxy game address:", gameToken.address);
-        console.log("Proxy logic address:", logic.address);
-        console.log("Proxy proxy address:", proxy.address);
-        console.log("Proxy initialized with:", initializeData);
+        // Deploy do contrato NFTMarketplaceUnified
+        const marketplace = await deployNFTMarketplaceUnifiedContract();
+
+        // Deploy do contrato CaDuCoinXSaleUSDC
+        const sale = await deployCaDuCoinXSaleUSDCContract();
+
+        console.log("Deployment summary:");
+        console.log("CaDuCoinXToken Logic Address:", logic.address);
+        console.log("CaDuCoinXToken Proxy Address:", proxy.address);
+        console.log("NFTMarketplaceUnified Address:", marketplace.address);
+        console.log("CaDuCoinXSaleUSDC Address:", sale.address);
+        console.log("Token initialized with:", initializeData);
     } else {
-        // Exibir informações do deploy
-        console.log("Proxy game address:", process.env.GAME_CONTRACT_ADDRESS);
-        console.log("Proxy logic address:", process.env.LOGIC_CONTRACT_ADDRESS);
-        console.log("Proxy proxy address:", process.env.PROXY_CONTRACT_ADDRESS);
-        console.log("Proxy initialized with:", process.env.INITIALIZE_DATA);
+        console.log("Contracts already deployed:");
+        console.log("CaDuCoinXToken Logic Address:", process.env.LOGIC_CONTRACT_ADDRESS);
+        console.log("CaDuCoinXToken Proxy Address:", process.env.PROXY_CONTRACT_ADDRESS);
+        console.log("NFTMarketplaceUnified Address:", process.env.MARKETPLACE_CONTRACT_ADDRESS);
+        console.log("CaDuCoinXSaleUSDC Address:", process.env.USDC_CONTRACT_ADDRESS);
+        console.log("Token initialized with:", process.env.INITIALIZE_DATA);
     }
 }
 
-// Chamando a função principal com tratamento de erros
 main()
     .then(() => process.exit(0))
     .catch((error) => {

@@ -10,11 +10,6 @@ describe("CaDuCoinXToken", function () {
         // Obter contas
         [owner, addr1, addr2, deployer] = await ethers.getSigners();
 
-        // Deploy do contrato gamificado
-        const TokenGamificado = await ethers.getContractFactory("GameToken");
-        tokenGame = await TokenGamificado.deploy();
-        await tokenGame.deployed();
-
         // Deploy do contrato lógico
         const TokenFactory = await ethers.getContractFactory("CaDuCoinXToken");
         token = await TokenFactory.deploy();
@@ -24,8 +19,7 @@ describe("CaDuCoinXToken", function () {
         const initializeData = token.interface.encodeFunctionData("initialize", [
             owner.address,
             "CaDuCoinX",
-            "CDX",
-            tokenGame.address
+            "CDX"
         ]);
 
         // Deploy do proxy
@@ -53,5 +47,30 @@ describe("CaDuCoinXToken", function () {
     it("Deve impedir não-proprietários de cunhar tokens", async function () {
         const mintAmount = ethers.utils.parseUnits("1000", 10);
         await expect(token.connect(addr1).mint(addr1.address, mintAmount)).to.be.revertedWith("Not authorized to mint");
+    });
+    
+    it("Deve permitir ao proprietário aumentar o nível de um jogador", async function () {
+        await token.levelUp(addr1.address);
+
+        const playerData = await token.getPlayerData(addr1.address);
+        expect(playerData.level).to.equal(1);
+
+        // Aumentar o nível novamente
+        await token.levelUp(addr1.address);
+        const updatedPlayerData = await token.getPlayerData(addr1.address);
+        expect(updatedPlayerData.level).to.equal(2);
+    });
+
+    it("Deve impedir não-proprietários de aumentar o nível de um jogador", async function () {
+        await expect(token.connect(addr1).levelUp(addr1.address)).to.be.revertedWith(
+            "OwnableUnauthorizedAccount"
+        );
+    });
+
+    it("Deve permitir consultar os dados de um jogador", async function () {
+        await token.levelUp(addr1.address);
+
+        const playerData = await token.getPlayerData(addr1.address);
+        expect(playerData.level).to.equal(1);
     });
 });

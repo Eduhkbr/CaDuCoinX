@@ -8,33 +8,39 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import "./GameToken.sol";
 
 /**
  * @title CaDuCoinXToken
- * @dev Token ERC-20 com funcionalidades de mint, burn, gamificação e marketplace.
- * Utiliza AccessControl para autorizar a função mint, permitindo que contratos específicos sejam minters.
+ * @dev Token ERC-20 com funcionalidades integradas de mint, burn, e gamificação (níveis dos jogadores).
+ * Utiliza AccessControl para autorizar a função mint.
  */
 contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable, PausableUpgradeable {
     uint256 public constant DECIMALS = 18;
     uint256 public constant MAX_SUPPLY = 21000000 * (10 ** DECIMALS);
 
-    // Define o MINTER_ROLE utilizando AccessControl.
+    // Define o papel de minter utilizando AccessControl.
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-    GameToken public gameToken;
+    // Estrutura de dados para gerenciar a gamificação.
+    struct PlayerData {
+        uint256 level;
+        // Você pode adicionar outros dados, como experiência, conquistas, etc.
+    }
+
+    // Mapeia os endereços dos jogadores a seus dados de gamificação.
+    mapping(address => PlayerData) public players;
 
     event Minted(address indexed to, uint256 amount);
     event Burned(address indexed from, uint256 amount);
+    event LevelUp(address indexed player, uint256 newLevel);
 
     /**
-     * @notice Inicializa o token e configura AccessControl.
+     * @notice Inicializa o token e configura o AccessControl.
      * @param _owner Endereço do proprietário/admin do contrato.
      * @param name Nome do token.
      * @param symbol Símbolo do token.
-     * @param _gameToken Endereço do contrato GameToken.
      */
-    function initialize(address _owner, string memory name, string memory symbol, address _gameToken) public initializer {
+    function initialize(address _owner, string memory name, string memory symbol) public initializer {
         __ERC20_init(name, symbol);
         __Ownable_init(_owner);
         __AccessControl_init();
@@ -42,11 +48,9 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
         __UUPSUpgradeable_init();
         __Pausable_init();
 
-        // Conceder papéis utilizando _grantRole
+        // Concede papéis iniciais ao _owner.
         _grantRole(DEFAULT_ADMIN_ROLE, _owner);
         _grantRole(MINTER_ROLE, _owner);
-
-        gameToken = GameToken(_gameToken);
     }
 
     /**
@@ -66,18 +70,33 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
         emit Minted(to, amount);
     }
 
-    // Outras funções (burn, levelUp, getPlayerData) continuam inalteradas.
+    /**
+     * @notice Queima (burn) tokens do endereço.
+     * @param from Endereço do qual os tokens serão queimados.
+     * @param amount Quantidade de tokens a serem queimados.
+     */
     function burn(address from, uint256 amount) public onlyOwner whenNotPaused {
         require(balanceOf(from) >= amount, "Insufficient balance to burn");
         _burn(from, amount);
         emit Burned(from, amount);
     }
 
+    /**
+     * @notice Incrementa o nível do jogador.
+     * Somente o owner pode chamar essa função.
+     * @param player Endereço do jogador.
+     */
     function levelUp(address player) public onlyOwner whenNotPaused {
-        gameToken.levelUp(player);
+        require(player != address(0), "Invalid player address");
+        players[player].level += 1;
+        emit LevelUp(player, players[player].level);
     }
 
-    function getPlayerData(address player) public view returns (GameToken.PlayerData memory) {
-        return gameToken.getPlayerData(player);
+    /**
+     * @notice Retorna os dados de gamificação do jogador.
+     * @param player Endereço do jogador.
+     */
+    function getPlayerData(address player) public view returns (PlayerData memory) {
+        return players[player];
     }
 }

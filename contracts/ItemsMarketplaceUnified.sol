@@ -7,21 +7,21 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IMarketplace.sol";
 
 /**
- * @title NFTMarketplaceUnified
- * @dev Marketplace unificado para negociação de NFTs.
+ * @title ItemsMarketplaceUnified
+ * @dev Marketplace unificado para negociação de itens.
  * Implementa a interface IMarketplace.
  */
-contract NFTMarketplaceUnified is Initializable, OwnableUpgradeable, IMarketplace {
+contract ItemsMarketplaceUnified is Initializable, OwnableUpgradeable, IMarketplace {
     // Token utilizado para pagamento (ex: CaDuCoinXToken)
     IERC20 public paymentToken;
 
-    // Estrutura para representar um ativo (NFT) listado no marketplace.
+    // Estrutura para representar um ativo (item) listado no marketplace.
     struct Asset {
         uint256 id;
         string name;
-        uint256 price; // Preço em unidades do token (18 decimais, por exemplo)
+        uint256 price;
         address seller;
-        string category; // Normalmente "nft"
+        string category; // Normalmente "item"
     }
 
     mapping(uint256 => Asset) public assets;
@@ -46,7 +46,7 @@ contract NFTMarketplaceUnified is Initializable, OwnableUpgradeable, IMarketplac
      * @notice Lista um ativo para venda no marketplace.
      * @param name Nome/descritivo do ativo.
      * @param price Preço do ativo em tokens.
-     * @param category Categoria do ativo (ex: "nft").
+     * @param category Categoria do ativo (ex: "item").
      */
     function listAsset(string memory name, uint256 price, string memory category) external override {
         require(price > 0, "Price must be greater than zero");
