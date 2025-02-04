@@ -76,7 +76,6 @@ contract CaDuCoinXSaleUSDC is Initializable, OwnableUpgradeable {
         require(success, "Transferencia de USDC falhou");
 
         // Mint os tokens para o comprador.
-        // TODO: Ajustar controle do mint por OwnableUnauthorizedAccount
         token.mint(msg.sender, tokenAmount);
         emit TokensPurchased(msg.sender, tokenAmount, cost);
     }

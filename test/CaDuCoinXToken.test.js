@@ -52,6 +52,6 @@ describe("CaDuCoinXToken", function () {
 
     it("Deve impedir não-proprietários de cunhar tokens", async function () {
         const mintAmount = ethers.utils.parseUnits("1000", 10);
-        await expect(token.connect(addr1).mint(addr1.address, mintAmount)).to.be.revertedWith("OwnableUnauthorizedAccount");
+        await expect(token.connect(addr1).mint(addr1.address, mintAmount)).to.be.revertedWith("Not authorized to mint");
     });
 });
