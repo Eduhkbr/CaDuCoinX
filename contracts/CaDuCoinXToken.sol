@@ -72,13 +72,12 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
 
     /**
      * @notice Queima (burn) tokens do endereço.
-     * @param from Endereço do qual os tokens serão queimados.
      * @param amount Quantidade de tokens a serem queimados.
      */
-    function burn(address from, uint256 amount) public onlyOwner whenNotPaused {
-        require(balanceOf(from) >= amount, "Insufficient balance to burn");
-        _burn(from, amount);
-        emit Burned(from, amount);
+    function burn(uint256 amount) public whenNotPaused {
+        require(balanceOf(msg.sender) >= amount, "Insufficient balance to burn");
+        _burn(msg.sender, amount);
+        emit Burned(msg.sender, amount);
     }
 
     /**

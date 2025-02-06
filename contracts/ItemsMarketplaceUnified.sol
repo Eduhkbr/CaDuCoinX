@@ -21,7 +21,7 @@ contract ItemsMarketplaceUnified is Initializable, OwnableUpgradeable, IMarketpl
         string name;
         uint256 price;
         address seller;
-        string category; // Normalmente "item"
+        string category;
     }
 
     mapping(uint256 => Asset) public assets;

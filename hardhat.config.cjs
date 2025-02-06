@@ -20,12 +20,26 @@ module.exports = {
             accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
             chainId: 11155111,
         },*/
-        // Optimism
-        sepolia: {
+        optimism: {
             url: process.env.INFURA_SEPOLIA_URL,
             accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
             chainId: 11155420,
         },
+    },
+    etherscan: {
+        apiKey: {
+            optimism: process.env.ETHERSCAN_API_KEY
+        },
+        customChains: [
+            {
+                network: "optimism",
+                chainId: 11155420,
+                urls: {
+                    apiURL: "https://api-sepolia-optimistic.etherscan.io/api",
+                    browserURL: "https://sepolia-optimism.etherscan.io/"                    
+                }
+            }
+        ]
     },
     sourcify: {
         enabled: true

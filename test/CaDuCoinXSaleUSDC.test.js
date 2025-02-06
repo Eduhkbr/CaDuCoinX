@@ -79,7 +79,7 @@ describe("CaDuCoinXSaleUSDC", function () {
       
       // Sem aprovação, a compra deve reverter.
       await expect(sale.connect(buyer).purchaseTokens(tokenAmount))
-        .to.be.revertedWith("Allowance insuficiente para USDC");
+        .to.be.revertedWith("Allowance insuficiente: cheque aprovacao e valor");
     });
 
     it("should allow owner to update token price", async function () {
@@ -89,5 +89,58 @@ describe("CaDuCoinXSaleUSDC", function () {
         .withArgs(newPrice);
       expect(await sale.tokenPrice()).to.equal(newPrice);
     });
+
+    
+    it("should not allow others to update token price", async function () {
+      const newPrice = 9000;
+      await expect(sale.connect(buyer).updateTokenPrice(newPrice)).to.be.revertedWith("OwnableUnauthorizedAccount");
+    });
+
+    it("should correctly handle multiple purchases", async function () {
+      const tokenPrice = await sale.tokenPrice();
+      
+      // Use ethers.utils.parseUnits para trabalhar com BigNumber
+      const firstPurchaseAmount = ethers.utils.parseUnits("100", 18); // Assumindo que o token tem 18 decimais
+      const secondPurchaseAmount = ethers.utils.parseUnits("50", 18); // Assumindo que o token tem 18 decimais
+  
+      await usdc.connect(buyer).mint(buyer.address, ethers.utils.parseUnits("10000000001000000000", 6));
+
+      // Aprova o número total de USDC necessário
+      const totalCost = tokenPrice.mul(firstPurchaseAmount).add(tokenPrice.mul(secondPurchaseAmount));
+      await usdc.connect(buyer).approve(sale.address, totalCost);
+  
+      // Realiza a primeira compra
+      await sale.connect(buyer).purchaseTokens(firstPurchaseAmount);
+      expect(await token.balanceOf(buyer.address)).to.equal(firstPurchaseAmount);
+  
+      // Realiza a segunda compra
+      await sale.connect(buyer).purchaseTokens(secondPurchaseAmount);
+      expect(await token.balanceOf(buyer.address)).to.equal(firstPurchaseAmount.add(secondPurchaseAmount));
+    });
+
+    describe("Token Purchase Debugging Tests", function () {
+      it("should show correct allowance and balance before purchase", async function () {
+          const tokenAmount = 100;
+          const tokenPrice = await sale.tokenPrice();
+          const cost = tokenAmount * tokenPrice;
+  
+          // Tenta aprovar como teste
+          await usdc.connect(buyer).approve(sale.address, cost);
+          
+          const allowance = await usdc.allowance(buyer.address, sale.address);
+          const balance = await usdc.balanceOf(buyer.address);
+  
+
+          console.log(`Allowance before purchase: ${allowance.toString()}`);
+          console.log(`USDC balance before purchase: ${balance.toString()}`);
+          
+          
+          // Verifica a aprovação
+          const updatedAllowance = await usdc.allowance(buyer.address, sale.address);
+          expect(updatedAllowance).to.be.equal(cost);
+      });
+  });
+  
+    
   });
 });

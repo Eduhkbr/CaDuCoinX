@@ -73,4 +73,28 @@ describe("CaDuCoinXToken", function () {
         const playerData = await token.getPlayerData(addr1.address);
         expect(playerData.level).to.equal(1);
     });
+
+    
+    // Teste integrado para a função burn
+    it("Deve permitir que os usuários queimem seus próprios tokens", async function () {
+        const mintAmount = ethers.utils.parseUnits("1000", 10);
+        await token.mint(addr1.address, mintAmount);
+
+        // Verifica o saldo antes da queima
+        expect(await token.balanceOf(addr1.address)).to.equal(mintAmount);
+
+        const burnAmount = ethers.utils.parseUnits("500", 10);
+        await token.connect(addr1).burn(burnAmount);
+
+        // Verifica o saldo após a queima
+        expect(await token.balanceOf(addr1.address)).to.equal(mintAmount.sub(burnAmount));
+    });
+
+    it("Deve impedir que um usuário queime mais tokens do que possui", async function () {
+        const mintAmount = ethers.utils.parseUnits("1000", 10);
+        await token.mint(addr1.address, mintAmount);
+
+        const burnAmount = ethers.utils.parseUnits("1500", 10);
+        await expect(token.connect(addr1).burn(burnAmount)).to.be.revertedWith("Insufficient balance to burn");
+    });
 });
