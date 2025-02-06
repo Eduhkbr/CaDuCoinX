@@ -6,7 +6,7 @@ on:
       - feature/gamificacao
 
 env:
-  NETWORK: sepolia
+  NETWORK: optimism
 
 jobs:
   deploy:
