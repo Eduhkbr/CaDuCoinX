@@ -10,7 +10,7 @@ describe("NFTMarketplaceUnified", function () {
 
     // Deploy do TestERC20 para simular o token de pagamento (por exemplo, CaDuCoinXToken ou outro token)
     const TestERC20 = await ethers.getContractFactory("TestERC20");
-    paymentToken = await TestERC20.deploy("Payment Token", "PTK", 18);
+    paymentToken = await TestERC20.deploy("Payment Token", "PTK");
     await paymentToken.deployed();
 
     // Mint tokens para o buyer (para que ele possa comprar NFTs)

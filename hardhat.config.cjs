@@ -24,7 +24,7 @@ module.exports = {
             accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
             chainId: 11155420,
         },
-    },/*
+    },
     etherscan: {
         apiKey: {
             optimism: process.env.ETHERSCAN_API_KEY
@@ -39,7 +39,7 @@ module.exports = {
                 }
             }
         ]
-    },*/
+    },
     sourcify: {
         enabled: true
     }

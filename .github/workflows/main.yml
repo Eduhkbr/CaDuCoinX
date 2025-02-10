@@ -38,10 +38,8 @@ jobs:
           TREASURY_ADDRESS: ${{ secrets.TREASURY_ADDRESS }} # Endereço do tesouro onde os pagamentos são enviados
           NAME_TOKEN: ${{ vars.NAME_TOKEN }} # Nome do token
           SYMBOL: ${{ vars.SYMBOL }} # Símbolo do token
-          USDC_TOKEN_ADDRESS: ${{ vars.USDC_TOKEN_ADDRESS }} # Endereço do contrato usdc na rede OP
           NTF_CONTRACT_ADDRESS: ${{ vars.NTF_CONTRACT_ADDRESS }} # Endereço do contrato NTF
           ITEM_CONTRACT_ADDRESS: ${{ vars.ITEM_CONTRACT_ADDRESS }} # Endereço do contrato de itens
-          SALE_CONTRACT_ADDRESS: ${{ vars.SALE_CONTRACT_ADDRESS }} # Endereço do contrato de venda
           LOGIC_CONTRACT_ADDRESS: ${{ vars.LOGIC_CONTRACT_ADDRESS }} # Endereço do contrato de lógica CaDuCoinX
           PROXY_CONTRACT_ADDRESS: ${{ vars.PROXY_CONTRACT_ADDRESS }} # Endereço do contrato proxy
         run: npx hardhat run scripts/deploy.js --network $NETWORK

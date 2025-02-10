@@ -30,25 +30,6 @@ async function deployNFTMarketplaceUnifiedContract(logicAddress) {
     return marketplace;
 }
 
-async function deployCaDuCoinXSaleUSDCContract(logicAddress) {
-    console.log("Deploying CaDuCoinXSaleUSDC logic contract...");
-    const CaDuCoinXSaleUSDC = await ethers.getContractFactory("CaDuCoinXSaleUSDC");
-    // Inicializa com (tokenAddress, usdcAddress, treasuryAddress, owner)
-    const sale = await upgrades.deployProxy(
-        CaDuCoinXSaleUSDC,
-        [
-            logicAddress,
-            process.env.USDC_TOKEN_ADDRESS,
-            process.env.TREASURY_ADDRESS,
-            process.env.DEPLOYER_ADDRESS
-        ],
-        { initializer: "initialize" }
-    );
-    await sale.deployed();
-    console.log("CaDuCoinXSaleUSDC contract deployed at:", sale.address);
-    return sale;
-}
-
 async function deployLogicContract() {
     console.log("Deploying CaDuCoinXToken logic contract...");
     const CaDuCoinXToken = await ethers.getContractFactory("CaDuCoinXToken");
@@ -89,21 +70,25 @@ async function main() {
         // Deploy do proxy do token
         const proxy = await deployProxyContract(logic.address, initializeData);
 
-        // Deploy do contrato NFTMarketplaceUnified
-        const nftMarketplace = await deployNFTMarketplaceUnifiedContract(logic.address);
+        let nftMarketplace;
+        let itemsMarketplace
+        if(!process.env.NTF_CONTRACT_ADDRESS || !process.env.ITEM_CONTRACT_ADDRESS) {
 
-        // Deploy do contrato NFTMarketplaceUnified
-        const itemsMarketplace = await deployItemsMarketplaceUnifiedContract(logic.address);
+            // Deploy do contrato NFTMarketplaceUnified
+            nftMarketplace = await deployNFTMarketplaceUnifiedContract(logic.address);
 
-        // Deploy do contrato CaDuCoinXSaleUSDC
-        const sale = await deployCaDuCoinXSaleUSDCContract(logic.address);
+            // Deploy do contrato NFTMarketplaceUnified
+            itemsMarketplace = await deployItemsMarketplaceUnifiedContract(logic.address);
+        }else{
+            nftMarketplace = process.env.NTF_CONTRACT_ADDRESS;
+            itemsMarketplace = process.env.ITEM_CONTRACT_ADDRESS;
+        }
 
         console.log("Deployment summary:");
         console.log("CaDuCoinXToken Logic Address:", logic.address);
         console.log("CaDuCoinXToken Proxy Address:", proxy.address);
         console.log("NFTMarketplaceUnified Address:", nftMarketplace.address);
         console.log("ItemsMarketplaceUnified Address:", itemsMarketplace.address);
-        console.log("CaDuCoinXSaleUSDC Address:", sale.address);
         console.log("Token initialized with:", initializeData);
     } else {
         console.log("Contracts already deployed:");
@@ -111,7 +96,6 @@ async function main() {
         console.log("CaDuCoinXToken Proxy Address:", process.env.PROXY_CONTRACT_ADDRESS);
         console.log("NFTMarketplaceUnified Address:", process.env.NTF_CONTRACT_ADDRESS);
         console.log("ItemsMarketplaceUnified Address:", process.env.ITEM_CONTRACT_ADDRESS);
-        console.log("CaDuCoinXSaleUSDC Address:", process.env.SALE_CONTRACT_ADDRESS);
         console.log("Token initialized with:", process.env.INITIALIZE_DATA);
     }
 }

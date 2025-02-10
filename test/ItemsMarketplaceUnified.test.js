@@ -10,7 +10,7 @@ describe("ItemsMarketplaceUnified", function () {
 
     // Deploy do TestERC20 para simular o token de pagamento (ex.: CaDuCoinXToken ou token de pagamento dedicado)
     const TestERC20 = await ethers.getContractFactory("TestERC20");
-    paymentToken = await TestERC20.deploy("Payment Token", "PTK", 18);
+    paymentToken = await TestERC20.deploy("Payment Token", "PTK");
     await paymentToken.deployed();
 
     // Mint tokens para o buyer, que irá comprar ativos

@@ -1,7 +1,7 @@
 {
   "name": "caducoinx",
-  "version": "1.0.0",
-  "description": "## Token da Economia de Microtransações e Staking Inteligente",
+  "version": "1.0.1",
+  "description": "## Token para Microtransações e Ecossistema de Gamificação Unificado",
   "main": "hardhat.config.cjs",
   "directories": {
     "test": "tests"
@@ -16,7 +16,6 @@
   "dependencies": {
     "@ensdomains/ens-contracts": "1.2.2",
     "@nomicfoundation/hardhat-verify": "^2.0.12",
-    "@openzeppelin/contracts": "^5.1.0",
     "@openzeppelin/contracts-upgradeable": "^5.1.0",
     "dotenv": "^16.3.1",
     "ethers": "^5.7.2",
