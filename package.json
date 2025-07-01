@@ -1,6 +1,6 @@
 {
   "name": "caducoinx",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "## Token para Microtransações e Ecossistema de Gamificação Unificado",
   "main": "hardhat.config.cjs",
   "directories": {
@@ -16,13 +16,21 @@
   "dependencies": {
     "@ensdomains/ens-contracts": "1.2.2",
     "@nomicfoundation/hardhat-verify": "^2.0.12",
-    "@openzeppelin/contracts-upgradeable": "^5.1.0",
+    "@openzeppelin/contracts-upgradeable": "^5.3.0",
     "dotenv": "^16.3.1",
     "ethers": "^5.7.2",
     "solc": "^0.8.28"
   },
   "scripts": {
-    "test": "mocha"
+    "compile": "npx hardhat compile",
+    "deploy": "npx hardhat run scripts/deploy.js",
+    "deploy:localhost": "npx hardhat run scripts/deploy.js --network localhost",
+    "deploy:sepolia": "npx hardhat run scripts/deploy.js --network sepolia",
+    "deploy:mainnet": "npx hardhat run scripts/deploy.js --network mainnet",
+    "test": "npx hardhat test",
+    "verify": "npx hardhat verify",
+    "node": "npx hardhat node",
+    "clean": "npx hardhat clean"
   },
   "keywords": [],
   "author": "",
