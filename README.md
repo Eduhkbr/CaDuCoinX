@@ -5,7 +5,7 @@
 [![GitHub forks](https://img.shields.io/github/forks/Eduhkbr/CaDuCoinX)](https://github.com/Eduhkbr/CaDuCoinX/network/members)
 
 **CaDuCoinX (CDX)** é um token ERC‑20 upgradeável projetado para revolucionar a economia de microtransações e integrar ecossistemas de jogos. Construído na rede **Optimism** (Layer 2 do Ethereum), o CDX oferece transações rápidas, taxas baixas e alta segurança, permitindo a conversão de créditos off‑chain em tokens on‑chain de forma eficiente. O ecossistema também conta com marketplaces especializados para NFTs e itens digitais, promovendo interoperabilidade e liquidez entre diferentes jogos e plataformas.
-
+ 
 ---
 
 ## 📌 Sumário
