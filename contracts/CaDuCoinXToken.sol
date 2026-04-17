@@ -6,7 +6,6 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
  * @title CaDuCoinXToken
@@ -16,97 +15,58 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  * @notice This token is designed for microtransactions and unified gamification ecosystem
  */
 contract CaDuCoinXToken is
-Initializable,
-AccessControlUpgradeable,
-ERC20PausableUpgradeable,
-UUPSUpgradeable,
-ReentrancyGuardUpgradeable
+    Initializable,
+    AccessControlUpgradeable,
+    ERC20PausableUpgradeable,
+    UUPSUpgradeable,
+    ReentrancyGuardUpgradeable
 {
-    using ECDSA for bytes32;
-
     // =============================================================
     //                           CONSTANTS
     // =============================================================
 
-    /// @dev Role identifier for accounts that can mint tokens
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-
-    /// @dev Role identifier for accounts that can upgrade the contract
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
-
-    /// @dev Role identifier for accounts that can pause/unpause the contract
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-
-    /// @dev Role identifier for accounts that can update token prices
     bytes32 public constant PRICE_UPDATER_ROLE = keccak256("PRICE_UPDATER_ROLE");
 
-    /// @dev Maximum price to prevent extreme values (100 ETH)
     uint256 public constant MAX_PRICE = 100 ether;
-
-    /// @dev Minimum price to prevent zero division (0.000001 ETH)
     uint256 public constant MIN_PRICE = 1e12;
-
-    /// @dev Maximum supply cap (1 billion tokens)
     uint256 public constant MAX_SUPPLY = 1_000_000_000 * 1e18;
-
-    /// @dev Sell price percentage (98% of sale price)
     uint256 public constant SELL_PRICE_PERCENTAGE = 98;
 
     // =============================================================
     //                        STATE VARIABLES
     // =============================================================
 
-    /// @dev Price to purchase 1 token in wei
     uint256 public salePrice;
-
-    /// @dev Price to sell 1 token in wei (typically 98% of sale price)
     uint256 public sellPrice;
-
-    /// @dev Whether token sale is currently active
     bool public saleActive;
 
-    /// @dev Mapping to track used signature hashes to prevent replay attacks
-    mapping(bytes32 => bool) public usedSignatures;
+    /// @dev Reserved storage space for future upgrades
+    uint256[47] private __gap;
 
     // =============================================================
     //                            EVENTS
     // =============================================================
 
-    /// @dev Emitted when sale price is updated
     event SalePriceUpdated(uint256 indexed newSalePrice, uint256 indexed newSellPrice);
-
-    /// @dev Emitted when sale status changes
     event SaleStatusUpdated(bool indexed newStatus);
-
-    /// @dev Emitted when tokens are purchased
     event TokensPurchased(address indexed buyer, uint256 tokenAmount, uint256 ethAmount);
-
-    /// @dev Emitted when tokens are sold
     event TokensSold(address indexed seller, uint256 tokenAmount, uint256 ethAmount);
-
-    /// @dev Emitted when excess ETH is withdrawn
-    event ExcessWithdrawn(address indexed admin, uint256 amount);
-
-    /// @dev Emitted when tokens are burned
+    event EthWithdrawn(address indexed admin, uint256 amount);
+    event EthDeposited(address indexed depositor, uint256 amount);
     event TokensBurned(address indexed burner, uint256 amount);
 
     // =============================================================
     //                          MODIFIERS
     // =============================================================
 
-    /**
-     * @dev Ensures the total supply doesn't exceed the maximum cap
-     * @param amount The amount to be minted
-     */
     modifier withinSupplyCap(uint256 amount) {
         require(totalSupply() + amount <= MAX_SUPPLY, "Exceeds maximum supply");
         _;
     }
 
-    /**
-     * @dev Validates price is within acceptable range
-     * @param price The price to validate
-     */
     modifier validPrice(uint256 price) {
         require(price >= MIN_PRICE && price <= MAX_PRICE, "Price out of range");
         _;
@@ -125,13 +85,6 @@ ReentrancyGuardUpgradeable
     //                      INITIALIZATION
     // =============================================================
 
-    /**
-     * @notice Initializes the CaDuCoinX token contract
-     * @dev This function replaces the constructor for upgradeable contracts
-     * @param defaultAdmin The address that will receive all initial roles
-     * @param name The name of the token
-     * @param symbol The symbol of the token
-     */
     function initialize(
         address defaultAdmin,
         string memory name,
@@ -147,14 +100,12 @@ ReentrancyGuardUpgradeable
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
 
-        // Grant all roles to the default admin
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         _grantRole(MINTER_ROLE, defaultAdmin);
         _grantRole(UPGRADER_ROLE, defaultAdmin);
         _grantRole(PRICE_UPDATER_ROLE, defaultAdmin);
         _grantRole(PAUSER_ROLE, defaultAdmin);
 
-        // Set initial configuration
         salePrice = 3300000000000; // 0.0000033 ETH
         sellPrice = (salePrice * SELL_PRICE_PERCENTAGE) / 100;
         saleActive = true;
@@ -167,42 +118,23 @@ ReentrancyGuardUpgradeable
     //                      TOKEN FUNCTIONS
     // =============================================================
 
-    /**
-     * @notice Mints new tokens to the specified address
-     * @dev Only accounts with MINTER_ROLE can call this function
-     * @param to The address that will receive the minted tokens
-     * @param amount The amount of tokens to mint
-     */
     function mint(address to, uint256 amount)
-    public
-    onlyRole(MINTER_ROLE)
-    withinSupplyCap(amount)
+        public
+        onlyRole(MINTER_ROLE)
+        withinSupplyCap(amount)
     {
         require(to != address(0), "Cannot mint to zero address");
         require(amount > 0, "Amount must be greater than zero");
-
         _mint(to, amount);
     }
 
-    /**
-     * @notice Burns tokens from the caller's balance
-     * @dev Anyone can burn their own tokens
-     * @param amount The amount of tokens to burn
-     */
     function burn(uint256 amount) public {
         require(amount > 0, "Amount must be greater than zero");
         require(balanceOf(msg.sender) >= amount, "Insufficient balance to burn");
-
         _burn(msg.sender, amount);
         emit TokensBurned(msg.sender, amount);
     }
 
-    /**
-     * @notice Burns tokens from a specific address (requires allowance)
-     * @dev The caller must have sufficient allowance from the target address
-     * @param from The address to burn tokens from
-     * @param amount The amount of tokens to burn
-     */
     function burnFrom(address from, uint256 amount) public {
         require(amount > 0, "Amount must be greater than zero");
         require(from != address(0), "Cannot burn from zero address");
@@ -219,27 +151,16 @@ ReentrancyGuardUpgradeable
     //                    PRICE MANAGEMENT
     // =============================================================
 
-    /**
-     * @notice Updates the sale and sell prices for token trading
-     * @dev Only accounts with PRICE_UPDATER_ROLE can call this function
-     * @param newSalePrice The new price for purchasing tokens (in wei)
-     */
     function updateSalePrice(uint256 newSalePrice)
-    public
-    onlyRole(PRICE_UPDATER_ROLE)
-    validPrice(newSalePrice)
+        public
+        onlyRole(PRICE_UPDATER_ROLE)
+        validPrice(newSalePrice)
     {
         salePrice = newSalePrice;
         sellPrice = (newSalePrice * SELL_PRICE_PERCENTAGE) / 100;
-
         emit SalePriceUpdated(salePrice, sellPrice);
     }
 
-    /**
-     * @notice Enables or disables token sales
-     * @dev Only accounts with DEFAULT_ADMIN_ROLE can call this function
-     * @param active Whether token sales should be active
-     */
     function setSaleActive(bool active) public onlyRole(DEFAULT_ADMIN_ROLE) {
         saleActive = active;
         emit SaleStatusUpdated(active);
@@ -251,17 +172,14 @@ ReentrancyGuardUpgradeable
 
     /**
      * @notice Allows users to purchase tokens with ETH
-     * @dev Mints tokens based on the amount of ETH sent and current sale price
-     * Requirements:
-     * - Contract must not be paused
-     * - Sale must be active
-     * - Must send ETH with the transaction
+     * @dev Mints tokens based on the amount of ETH sent and current sale price.
+     * Users MUST call this function explicitly (no implicit purchase via receive/fallback).
      */
     function purchaseTokens()
-    public
-    payable
-    whenNotPaused
-    nonReentrant
+        public
+        payable
+        whenNotPaused
+        nonReentrant
     {
         require(saleActive, "Token sale is not active");
         require(msg.value > 0, "Must send ETH to purchase tokens");
@@ -276,17 +194,13 @@ ReentrancyGuardUpgradeable
 
     /**
      * @notice Allows users to sell tokens back for ETH
-     * @dev Burns tokens and sends ETH based on current sell price
-     * @param tokenAmount The amount of tokens to sell
-     * Requirements:
-     * - Contract must not be paused
-     * - Must have sufficient token balance
-     * - Contract must have sufficient ETH balance
+     * @dev Burns tokens and sends ETH based on current sell price.
+     * Follows checks-effects-interactions pattern.
      */
     function sellTokens(uint256 tokenAmount)
-    public
-    whenNotPaused
-    nonReentrant
+        public
+        whenNotPaused
+        nonReentrant
     {
         require(tokenAmount > 0, "Amount must be greater than zero");
         require(balanceOf(msg.sender) >= tokenAmount, "Insufficient token balance");
@@ -295,6 +209,7 @@ ReentrancyGuardUpgradeable
         require(ethToSend > 0, "ETH amount too small");
         require(address(this).balance >= ethToSend, "Contract has insufficient ETH balance");
 
+        // Burn BEFORE sending ETH (checks-effects-interactions)
         _burn(msg.sender, tokenAmount);
 
         (bool success, ) = payable(msg.sender).call{value: ethToSend}("");
@@ -304,55 +219,51 @@ ReentrancyGuardUpgradeable
     }
 
     /**
-     * @notice Withdraws excess ETH from the contract
-     * @dev Only withdraws ETH above the amount needed to back all circulating tokens
-     * Only accounts with DEFAULT_ADMIN_ROLE can call this function
+     * @notice Deposits ETH to fund token sell-backs
+     * @dev Only admin can deposit ETH. This is the proper way to fund the contract.
+     */
+    function depositEth() public payable onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(msg.value > 0, "Must send ETH");
+        emit EthDeposited(msg.sender, msg.value);
+    }
+
+    /**
+     * @notice Withdraws excess ETH above the required reserve
      */
     function withdraw() public onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
-        uint256 requiredBalanceWithdraw = requiredBalance();
-        uint256 contractBalanceWithdraw = contractBalance();
+        uint256 required = requiredBalance();
+        uint256 current = contractBalance();
+        require(current > required, "No excess balance to withdraw");
 
-        require(contractBalanceWithdraw > requiredBalanceWithdraw, "No excess balance to withdraw");
-
-        uint256 amountToWithdraw = contractBalanceWithdraw - requiredBalanceWithdraw;
+        uint256 amountToWithdraw = current - required;
 
         (bool success, ) = payable(msg.sender).call{value: amountToWithdraw}("");
         require(success, "Withdrawal failed");
 
-        emit ExcessWithdrawn(msg.sender, amountToWithdraw);
+        emit EthWithdrawn(msg.sender, amountToWithdraw);
     }
 
     /**
-     * @notice Emergency withdrawal function for admin
-     * @dev Allows withdrawal of all ETH in emergency situations
-     * Only accounts with DEFAULT_ADMIN_ROLE can call this function
+     * @notice Emergency withdrawal of all ETH. Requires contract to be paused.
      */
-    function emergencyWithdraw() public onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
-        uint256 contractBalanceWithdraw = contractBalance();
-        require(contractBalanceWithdraw > 0, "No balance to withdraw");
+    function emergencyWithdraw() public onlyRole(DEFAULT_ADMIN_ROLE) whenPaused nonReentrant {
+        uint256 bal = contractBalance();
+        require(bal > 0, "No balance to withdraw");
 
-        (bool success, ) = payable(msg.sender).call{value: contractBalanceWithdraw}("");
+        (bool success, ) = payable(msg.sender).call{value: bal}("");
         require(success, "Emergency withdrawal failed");
 
-        emit ExcessWithdrawn(msg.sender, contractBalanceWithdraw);
+        emit EthWithdrawn(msg.sender, bal);
     }
 
     // =============================================================
     //                    PAUSABLE FUNCTIONS
     // =============================================================
 
-    /**
-     * @notice Pauses all token transfers and trading functions
-     * @dev Only accounts with PAUSER_ROLE can call this function
-     */
     function pause() public onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
-    /**
-     * @notice Unpauses all token transfers and trading functions
-     * @dev Only accounts with PAUSER_ROLE can call this function
-     */
     function unpause() public onlyRole(PAUSER_ROLE) {
         _unpause();
     }
@@ -361,46 +272,24 @@ ReentrancyGuardUpgradeable
     //                     VIEW FUNCTIONS
     // =============================================================
 
-    /**
-     * @notice Calculates how many tokens can be purchased with a given amount of ETH
-     * @param ethAmount The amount of ETH in wei
-     * @return The number of tokens that can be purchased
-     */
     function calculateTokensForEth(uint256 ethAmount) public view returns (uint256) {
         if (ethAmount == 0 || salePrice == 0) return 0;
         return (ethAmount * 10**decimals()) / salePrice;
     }
 
-    /**
-     * @notice Calculates how much ETH will be received for selling a given amount of tokens
-     * @param tokenAmount The amount of tokens to sell
-     * @return The amount of ETH that will be received
-     */
     function calculateEthForTokens(uint256 tokenAmount) public view returns (uint256) {
         if (tokenAmount == 0 || sellPrice == 0) return 0;
         return (tokenAmount * sellPrice) / 10**decimals();
     }
 
-    /**
-     * @notice Returns the current contract ETH balance
-     * @return The contract's ETH balance in wei
-     */
     function contractBalance() public view returns (uint256) {
         return address(this).balance;
     }
 
-    /**
-     * @notice Returns the required ETH balance to back all tokens
-     * @return The required ETH balance in wei
-     */
     function requiredBalance() public view returns (uint256) {
         return (totalSupply() * sellPrice) / 10**decimals();
     }
 
-    /**
-     * @notice Returns the excess ETH balance that can be withdrawn
-     * @return The excess ETH balance in wei
-     */
     function excessBalance() public view returns (uint256) {
         uint256 required = requiredBalance();
         uint256 current = contractBalance();
@@ -411,16 +300,11 @@ ReentrancyGuardUpgradeable
     //                    UPGRADE AUTHORIZATION
     // =============================================================
 
-    /**
-     * @notice Authorizes contract upgrades
-     * @dev Only accounts with UPGRADER_ROLE can authorize upgrades
-     * @param newImplementation The address of the new implementation contract
-     */
     function _authorizeUpgrade(address newImplementation)
-    internal
-    override
-    onlyRole(UPGRADER_ROLE)
-    view
+        internal
+        override
+        onlyRole(UPGRADER_ROLE)
+        view
     {
         require(newImplementation != address(0), "New implementation cannot be zero address");
     }
@@ -429,33 +313,11 @@ ReentrancyGuardUpgradeable
     //                       OVERRIDES
     // =============================================================
 
-    /**
-     * @notice Override required by Solidity for multiple inheritance
-     * @dev Calls the parent _update function from ERC20PausableUpgradeable
-     */
     function _update(
         address from,
         address to,
         uint256 value
     ) internal override(ERC20PausableUpgradeable) {
         super._update(from, to, value);
-    }
-
-    // =============================================================
-    //                    RECEIVE FUNCTION
-    // =============================================================
-
-    /**
-     * @notice Allows the contract to receive ETH directly
-     * @dev Automatically purchases tokens when ETH is sent directly to the contract
-     */
-    receive() external payable {
-        if (msg.value > 0 && saleActive && !paused()) {
-            uint256 tokensToMint = (msg.value * 10**decimals()) / salePrice;
-            if (tokensToMint > 0 && totalSupply() + tokensToMint <= MAX_SUPPLY) {
-                _mint(msg.sender, tokensToMint);
-                emit TokensPurchased(msg.sender, tokensToMint, msg.value);
-            }
-        }
     }
 }

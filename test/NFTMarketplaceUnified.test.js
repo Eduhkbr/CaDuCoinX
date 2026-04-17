@@ -2,113 +2,146 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 describe("NFTMarketplaceUnified", function () {
-  let marketplace, paymentToken;
-  let owner, seller, buyer;
+  let marketplace, paymentToken, testNft;
+  let owner, seller, buyer, feeCollector;
+  const TOKEN_ID = 1;
+  const ASSET_ID = 1;
 
   beforeEach(async function () {
-    [owner, seller, buyer] = await ethers.getSigners();
+    [owner, seller, buyer, feeCollector] = await ethers.getSigners();
 
-    // Deploy do TestERC20 para simular o token de pagamento (por exemplo, CaDuCoinXToken ou outro token)
     const TestERC20 = await ethers.getContractFactory("TestERC20");
     paymentToken = await TestERC20.deploy("Payment Token", "PTK");
-    await paymentToken.deployed();
 
-    // Mint tokens para o buyer (para que ele possa comprar NFTs)
+    const TestNFT = await ethers.getContractFactory("TestNFT");
+    testNft = await TestNFT.deploy("Test NFT", "TNFT");
+    await testNft.mint(seller.address, TOKEN_ID);
+
     await paymentToken.mint(buyer.address, ethers.utils.parseEther("1000"));
 
-    // Deploy do contrato NFTMarketplaceUnified via proxy upgradeable
     const NFTMarketplaceUnified = await ethers.getContractFactory("NFTMarketplaceUnified");
-    // Inicializa com (paymentToken, owner)
     marketplace = await upgrades.deployProxy(
       NFTMarketplaceUnified,
-      [paymentToken.address, owner.address],
+      [paymentToken.address, owner.address, feeCollector.address],
       { initializer: "initialize" }
     );
     await marketplace.deployed();
   });
 
   describe("Listing Assets", function () {
-    it("should allow seller to list an NFT", async function () {
+    it("should allow seller to list an NFT (escrow pattern)", async function () {
       const price = ethers.utils.parseEther("5");
-      const assetName = "Rare NFT Art";
-      const category = "nft";
+      await testNft.connect(seller).approve(marketplace.address, TOKEN_ID);
 
-      // Seller lista o NFT usando a função listAsset (definida na interface)
-      await expect(marketplace.connect(seller).listAsset(assetName, price, category))
-        .to.emit(marketplace, "AssetListed")
-        .withArgs(0, seller.address, assetName, price, category);
+      await expect(marketplace.connect(seller).listAsset(testNft.address, TOKEN_ID, price))
+        .to.emit(marketplace, "AssetListed");
 
-      // Verifica se o ativo foi listado corretamente
-      const asset = await marketplace.assets(0);
-      expect(asset.id).to.equal(0);
-      expect(asset.name).to.equal(assetName);
-      expect(asset.price).to.equal(price);
-      expect(asset.seller).to.equal(seller.address);
-      expect(asset.category).to.equal(category);
+      // NFT should now be held by the marketplace (escrow)
+      expect(await testNft.ownerOf(TOKEN_ID)).to.equal(marketplace.address);
+    });
+
+    it("should revert if marketplace is not approved", async function () {
+      const price = ethers.utils.parseEther("5");
+      await expect(marketplace.connect(seller).listAsset(testNft.address, TOKEN_ID, price))
+        .to.be.revertedWith("Marketplace not approved to transfer NFT");
+    });
+
+    it("should revert if caller is not the NFT owner", async function () {
+      const price = ethers.utils.parseEther("5");
+      await expect(marketplace.connect(buyer).listAsset(testNft.address, TOKEN_ID, price))
+        .to.be.revertedWith("Not the owner of the NFT");
     });
   });
 
   describe("Purchase Assets", function () {
+    const price = ethers.utils.parseEther("5");
+
     beforeEach(async function () {
-      // Seller lista um NFT
-      const price = ethers.utils.parseEther("5");
-      const assetName = "Digital Collectible NFT";
-      const category = "nft";
-      await marketplace.connect(seller).listAsset(assetName, price, category);
+      await testNft.connect(seller).approve(marketplace.address, TOKEN_ID);
+      await marketplace.connect(seller).listAsset(testNft.address, TOKEN_ID, price);
     });
 
     it("should allow buyer to purchase a listed NFT", async function () {
-      const price = ethers.utils.parseEther("5");
+      await paymentToken.connect(buyer).approve(marketplace.address, price);
+      await marketplace.connect(buyer).purchaseAsset(ASSET_ID);
 
-      // Buyer precisa aprovar o marketplace para gastar os tokens
+      // Buyer now owns the NFT
+      expect(await testNft.ownerOf(TOKEN_ID)).to.equal(buyer.address);
+    });
+
+    it("should correctly split payment between seller and fee collector", async function () {
       await paymentToken.connect(buyer).approve(marketplace.address, price);
 
-      // Salva o saldo do seller antes da compra
-      const sellerBalanceBefore = await paymentToken.balanceOf(seller.address);
+      const sellerBalBefore = await paymentToken.balanceOf(seller.address);
+      const feeBalBefore = await paymentToken.balanceOf(feeCollector.address);
 
-      // Buyer compra o NFT usando purchaseAsset
-      await expect(marketplace.connect(buyer).purchaseAsset(0))
-        .to.emit(marketplace, "AssetPurchased")
-        .withArgs(0, buyer.address, price);
+      await marketplace.connect(buyer).purchaseAsset(ASSET_ID);
 
-      // Verifica que o ativo foi removido (o registro é deletado, devolvendo valores nulos)
-      const assetAfter = await marketplace.assets(0);
-      expect(assetAfter.price).to.equal(0);
+      const fee = price.mul(250).div(10000); // 2.5%
+      const sellerAmount = price.sub(fee);
 
-      // Verifica que o saldo do seller aumentou corretamente
-      const sellerBalanceAfter = await paymentToken.balanceOf(seller.address);
-      expect(sellerBalanceAfter.sub(sellerBalanceBefore)).to.equal(price);
+      expect(await paymentToken.balanceOf(seller.address)).to.equal(sellerBalBefore.add(sellerAmount));
+      expect(await paymentToken.balanceOf(feeCollector.address)).to.equal(feeBalBefore.add(fee));
     });
 
     it("should revert purchase if buyer has insufficient allowance", async function () {
-      // Sem aprovação, a transferência deverá reverter com a mensagem padrão ERC20
-      await expect(marketplace.connect(buyer).purchaseAsset(0))
+      await expect(marketplace.connect(buyer).purchaseAsset(ASSET_ID))
         .to.be.revertedWith("ERC20InsufficientAllowance");
+    });
+
+    it("should revert if seller tries to buy own asset", async function () {
+      await paymentToken.mint(seller.address, price);
+      await paymentToken.connect(seller).approve(marketplace.address, price);
+      await expect(marketplace.connect(seller).purchaseAsset(ASSET_ID))
+        .to.be.revertedWith("Cannot purchase own asset");
     });
   });
 
   describe("Delist Assets", function () {
+    const price = ethers.utils.parseEther("5");
+
     beforeEach(async function () {
-      // Seller lista um NFT
-      const price = ethers.utils.parseEther("5");
-      const assetName = "Exclusive NFT";
-      const category = "nft";
-      await marketplace.connect(seller).listAsset(assetName, price, category);
+      await testNft.connect(seller).approve(marketplace.address, TOKEN_ID);
+      await marketplace.connect(seller).listAsset(testNft.address, TOKEN_ID, price);
     });
 
-    it("should allow seller to delist their NFT", async function () {
-      await expect(marketplace.connect(seller).delistAsset(0))
-        .to.emit(marketplace, "AssetDelisted")
-        .withArgs(0);
+    it("should allow seller to delist and return NFT", async function () {
+      await expect(marketplace.connect(seller).delistAsset(ASSET_ID))
+        .to.emit(marketplace, "AssetDelisted");
 
-      // Verifica que o ativo foi removido (price deve estar zerado)
-      const assetAfter = await marketplace.assets(0);
-      expect(assetAfter.price).to.equal(0);
+      // NFT returned to seller
+      expect(await testNft.ownerOf(TOKEN_ID)).to.equal(seller.address);
+
+      const asset = await marketplace.assets(ASSET_ID);
+      expect(asset.isActive).to.be.false;
     });
 
     it("should revert delisting if caller is not the seller", async function () {
-      await expect(marketplace.connect(buyer).delistAsset(0))
-        .to.be.revertedWith("Caller is not the seller");
+      await expect(marketplace.connect(buyer).delistAsset(ASSET_ID))
+        .to.be.revertedWith("Not the asset seller");
+    });
+  });
+
+  describe("Admin Functions", function () {
+    const price = ethers.utils.parseEther("5");
+
+    it("should allow owner to emergency delist", async function () {
+      await testNft.connect(seller).approve(marketplace.address, TOKEN_ID);
+      await marketplace.connect(seller).listAsset(testNft.address, TOKEN_ID, price);
+
+      await marketplace.connect(owner).emergencyDelistAsset(ASSET_ID);
+
+      expect(await testNft.ownerOf(TOKEN_ID)).to.equal(seller.address);
+    });
+
+    it("should allow owner to pause and unpause", async function () {
+      await marketplace.connect(owner).pause();
+      await testNft.connect(seller).approve(marketplace.address, TOKEN_ID);
+      await expect(marketplace.connect(seller).listAsset(testNft.address, TOKEN_ID, price))
+        .to.be.revertedWith("EnforcedPause");
+
+      await marketplace.connect(owner).unpause();
+      await marketplace.connect(seller).listAsset(testNft.address, TOKEN_ID, price);
     });
   });
 });

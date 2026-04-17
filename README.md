@@ -12,17 +12,16 @@
 
 1. [Características Principais](#-características-principais)
 2. [Funcionalidades do Token](#-funcionalidades-do-token)
-3. [Gamificação e Incentivos](#-gamificação-e-incentivos)
-4. [Marketplaces Unificados](#-marketplaces-unificados)
+3. [Marketplaces Unificados](#-marketplaces-unificados)
    - [NFT Marketplace Unificado](#nft-marketplace-unificado)
    - [Items Marketplace Unificado](#items-marketplace-unificado)
-5. [Detalhes e Estrutura dos Contratos](#-detalhes-e-estrutura-dos-contratos)
-6. [CI/CD](#-cicd)
-7. [Roadmap](#-roadmap)
-8. [Contribuindo](#-contribuindo)
-9. [Licença](#-licença)
-10. [Agradecimentos](#-agradecimentos)
-11. [Contato](#-contato)
+4. [Detalhes e Estrutura dos Contratos](#-detalhes-e-estrutura-dos-contratos)
+5. [CI/CD](#-cicd)
+6. [Roadmap](#-roadmap)
+7. [Contribuindo](#-contribuindo)
+8. [Licença](#-licença)
+9. [Agradecimentos](#-agradecimentos)
+10. [Contato](#-contato)
 
 ---
 
@@ -35,11 +34,11 @@
   Converta créditos off‑chain em tokens on‑chain de forma simples e segura, minimizando a exposição à volatilidade dos mercados.
 
 - **Marketplaces Integrados:**  
-  - **NFT Marketplace Unificado:** Plataforma para listagem e negociação de NFTs entre diversos jogos.  
+  - **NFT Marketplace Unificado:** Plataforma para listagem e negociação de NFTs entre diversos jogos, com custódia (escrow) segura dos ativos.  
   - **Items Marketplace Unificado:** Ambiente dedicado à comercialização de itens e ativos digitais não‑NFT.
 
 - **Upgradeabilidade e Segurança:**  
-  Contratos inteligentes seguros, auditados e atualizáveis (padrão UUPS), garantindo flexibilidade e longevidade ao projeto.
+  Contratos inteligentes seguros, auditados e atualizáveis (padrão UUPS), com arquitetura robusta para evitar vulnerabilidades comuns.
 
 ---
 
@@ -52,35 +51,21 @@
   Emissão e queima de tokens com limites máximos definidos para garantir o equilíbrio do ecossistema.
 
 - **Compra & Venda com ETH:**  
-  - **Compra (purchaseTokens):** Usuários podem adquirir tokens enviando ETH; a quantidade a ser mintada é calculada com base no valor enviado e no preço corrente (salePrice).  
-  - **Venda (sellTokens):** Permite que tokens sejam vendidos de volta ao contrato, queimando-os e recebendo ETH, desde que o contrato possua saldo suficiente.
+  - **Compra (`purchaseTokens`)**: Usuários podem adquirir tokens enviando ETH explicitamente via função pública; a quantidade a ser mintada é calculada com base no valor enviado e no preço corrente (`salePrice`).  
+  - **Venda (`sellTokens`)**: Permite que tokens sejam vendidos de volta ao contrato, queimando-os e recebendo ETH, desde que o contrato possua saldo suficiente.
+  - **Depósito de ETH (`depositEth`)**: Apenas administradores podem depositar ETH para garantir liquidez para vendas de tokens.
 
 - **Atualização de Preço:**  
   O owner pode ajustar o preço de venda dos tokens por meio da função `updateSalePrice`.
 
 - **Retirada de Fundos:**  
-  Função `withdraw` que possibilita ao owner sacar o excesso de ETH acumulado, mantendo uma reserva para garantir transações seguras.
+  Função `withdraw` que possibilita ao owner sacar o excesso de ETH acumulado, mantendo uma reserva para garantir transações seguras. Saques emergenciais exigem que o contrato esteja pausado.
 
 - **Pausabilidade:**  
   Mecanismo para pausar operações críticas em situações de emergência.
 
-- **Integração com Gamificação:**  
-  Armazena dados de jogadores (como níveis) e permite a evolução via função `levelUp`, incentivando o engajamento no ecossistema.
-
----
-
-## 🎮 Gamificação e Incentivos
-
-O ecossistema CaDuCoinX foi desenvolvido para promover engajamento e recompensas tanto para jogadores quanto para desenvolvedores:
-
-- **Sistema de Gamificação Integrado:**  
-  Cada endereço possui dados de jogador (por exemplo, nível), com evolução controlada pelo owner.
-
-- **Programas de Fidelidade e Recompensas:**  
-  Incentive o desempenho com programas que convertem créditos internos em tokens reais.
-
-- **Integração Off‑Chain e On‑Chain:**  
-  Futuramente serão disponibilizados SDKs e APIs para sincronizar dados off‑chain com o sistema on‑chain, facilitando a gestão de créditos e recompensas.
+- **Boas Práticas de Upgrade:**  
+  Uso de storage gap (`__gap`) para garantir segurança em futuras atualizações.
 
 ---
 
@@ -91,35 +76,45 @@ O ecossistema conta com duas soluções de marketplace para facilitar a negocia�
 ### NFT Marketplace Unificado
 
 - Plataforma centralizada para listagem, compra e delistagem de NFTs.
+- **Padrão Escrow:** O NFT é transferido para o contrato do marketplace no momento da listagem e só é liberado ao comprador ou devolvido ao vendedor em caso de delist.
 - Operações realizadas utilizando o mesmo token (CDX), promovendo interoperabilidade entre jogos e projetos.
+- Prevenção de listagem duplicada e proteção contra fraudes.
 
 ### Items Marketplace Unificado
 
 - Mercado dedicado à comercialização de itens e ativos digitais não‑NFT.
 - Regras customizadas para precificação e integração com sistemas de jogos, garantindo transações seguras e eficientes.
+- Taxa de marketplace deduzida do vendedor, nunca adicionada ao preço para o comprador.
+- Itens deliberadamente removidos não podem ser reativados por engano.
 
 ---
 
 ## 📜 Detalhes e Estrutura dos Contratos
 
 - **CaDuCoinXToken:**  
-  - Contrato ERC‑20 upgradeável com funcionalidades de gamificação, mecanismos de mint & burn, compra e venda com ETH e atualização de preços.  
+  - Contrato ERC‑20 upgradeável com funcionalidades de mint & burn, compra e venda com ETH, atualização de preços e pausabilidade.  
   - Funções principais:
     - `purchaseTokens`
     - `sellTokens`
     - `updateSalePrice`
     - `withdraw`
-    - `levelUp` (para incrementar os níveis dos jogadores)  
+    - `depositEth`
   - Implementado utilizando o padrão UUPS para permitir upgrades sem perda de dados.
+  - **Importante:** Não há mais gamificação ou armazenamento de dados de jogador neste contrato.
 
 - **CaDuCoinXTokenProxy:**  
   - Proxy baseado no padrão ERC1967 que delega chamadas para o contrato CaDuCoinXToken, possibilitando atualizações futuras sem alteração do estado.
+  - Não aceita ETH diretamente; todas as operações devem ser feitas via funções explícitas do token.
 
 - **NFTMarketplaceUnified:**  
-  - Contrato upgradeável para listar, comprar e delistar NFTs, implementando a interface `IMarketplace` para operações padronizadas.
+  - Contrato upgradeável para listar, comprar e delistar NFTs, utilizando padrão escrow para máxima segurança.
+  - O NFT é transferido para o contrato do marketplace durante a listagem e só sai de lá em caso de compra ou delist.
+  - Não implementa mais a interface `IMarketplace` (incompatível com NFTs).
 
 - **ItemsMarketplaceUnified:**  
-  - Contrato upgradeável dedicado à negociação de itens e ativos digitais não‑NFT, também implementando a interface `IMarketplace`.
+  - Contrato upgradeável dedicado à negociação de itens e ativos digitais não‑NFT.
+  - Taxas e lógica de listagem otimizadas para segurança e clareza.
+  - Itens deliberadamente removidos não podem ser reativados por engano.
 
 ---
 

@@ -101,6 +101,12 @@ IMarketplace
     /// @dev Mapping to check if an asset ID exists
     mapping(uint256 => bool) public assetExists;
 
+    /// @dev Tracks if an asset was deliberately delisted (vs deactivated due to zero quantity)
+    mapping(uint256 => bool) public deliberatelyDelisted;
+
+    /// @dev Reserved storage space for future upgrades
+    uint256[42] private __gap;
+
     // =============================================================
     //                            EVENTS
     // =============================================================
@@ -302,7 +308,6 @@ IMarketplace
     external
     override
     whenNotPaused
-    nonReentrant
     assetIsActive(assetId)
     {
         purchaseAssetQuantity(assetId, 1);
@@ -357,6 +362,7 @@ IMarketplace
     onlySeller(assetId)
     {
         assets[assetId].isActive = false;
+        deliberatelyDelisted[assetId] = true;
         emit AssetDelisted(assetId, msg.sender, block.timestamp);
     }
 
@@ -396,9 +402,12 @@ IMarketplace
     validQuantity(newQuantity)
     {
         require(assetExists[assetId], "Asset does not exist");
+        require(!deliberatelyDelisted[assetId], "Asset was deliberately delisted");
 
         assets[assetId].quantity = newQuantity;
-        assets[assetId].isActive = true; // Reactivate if it was deactivated due to zero quantity
+        if (newQuantity > 0) {
+            assets[assetId].isActive = true;
+        }
 
         emit QuantityUpdated(assetId, newQuantity);
     }
@@ -445,6 +454,7 @@ IMarketplace
     function emergencyDelistAsset(uint256 assetId) external onlyOwner {
         require(assetExists[assetId], "Asset does not exist");
         assets[assetId].isActive = false;
+        deliberatelyDelisted[assetId] = true;
         emit AssetDelisted(assetId, assets[assetId].seller, block.timestamp);
     }
 
@@ -518,22 +528,23 @@ IMarketplace
     }
 
     /**
-     * @notice Calculates the total cost for purchasing multiple units
+     * @notice Calculates the cost breakdown for purchasing multiple units
      * @param assetId ID of the asset
      * @param quantity Number of units
-     * @return totalCost Total cost including fees
-     * @return fee Fee amount
+     * @return buyerPays Total the buyer needs to approve/pay (= listed price * quantity)
+     * @return sellerReceives Amount the seller receives after fee deduction
+     * @return fee Fee amount deducted from the seller's proceeds
      */
     function calculateTotalCost(uint256 assetId, uint256 quantity)
     external
     view
-    returns (uint256 totalCost, uint256 fee)
+    returns (uint256 buyerPays, uint256 sellerReceives, uint256 fee)
     {
         require(assetExists[assetId], "Asset does not exist");
 
-        uint256 basePrice = assets[assetId].price * quantity;
-        fee = (basePrice * FEE_PERCENTAGE) / FEE_DENOMINATOR;
-        totalCost = basePrice + fee;
+        buyerPays = assets[assetId].price * quantity;
+        fee = (buyerPays * FEE_PERCENTAGE) / FEE_DENOMINATOR;
+        sellerReceives = buyerPays - fee;
     }
 
     /**

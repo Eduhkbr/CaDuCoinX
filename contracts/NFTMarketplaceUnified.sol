@@ -6,21 +6,20 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./IMarketplace.sol";
 
 /**
  * @title NFTMarketplaceUnified
- * @dev Secure and upgradeable marketplace for NFT trading
- * @notice Unified marketplace for NFT assets with comprehensive security features
+ * @dev Secure upgradeable NFT marketplace with escrow pattern.
+ * NFTs are held in escrow by the marketplace until purchased or delisted.
  * @author CaDuCoinX Team
  */
 contract NFTMarketplaceUnified is
-Initializable,
-OwnableUpgradeable,
-ReentrancyGuardUpgradeable,
-PausableUpgradeable,
-IMarketplace
+    Initializable,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable
 {
     using SafeERC20 for IERC20;
 
@@ -28,60 +27,30 @@ IMarketplace
     //                           CONSTANTS
     // =============================================================
 
-    /// @dev Maximum price to prevent overflow (1 million tokens)
     uint256 public constant MAX_PRICE = 1_000_000 * 1e18;
-
-    /// @dev Minimum price to prevent zero-value listings
-    uint256 public constant MIN_PRICE = 1e15; // 0.001 tokens
-
-    /// @dev Maximum name length for gas optimization
-    uint256 public constant MAX_NAME_LENGTH = 100;
-
-    /// @dev Maximum category length for gas optimization
-    uint256 public constant MAX_CATEGORY_LENGTH = 50;
-
-    /// @dev Marketplace fee percentage (2.5%)
-    uint256 public constant FEE_PERCENTAGE = 250; // 2.5% = 250/10000
-
-    /// @dev Fee denominator for percentage calculations
+    uint256 public constant MIN_PRICE = 1e15;
+    uint256 public constant FEE_PERCENTAGE = 250; // 2.5%
     uint256 public constant FEE_DENOMINATOR = 10000;
 
     // =============================================================
     //                        STATE VARIABLES
     // =============================================================
 
-    /// @dev Token used for payments
     IERC20 public paymentToken;
-
-    /// @dev Address that receives marketplace fees
     address public feeCollector;
-
-    /// @dev Counter for generating unique asset IDs
     uint256 public nextAssetId;
-
-    /// @dev Total fees collected by the marketplace
     uint256 public totalFeesCollected;
 
     // =============================================================
     //                           STRUCTS
     // =============================================================
 
-    /**
-     * @dev Structure representing a listed asset
-     * @param id Unique identifier for the asset
-     * @param name Name/description of the asset
-     * @param price Price in payment tokens
-     * @param seller Address of the asset seller
-     * @param category Category classification
-     * @param isActive Whether the listing is active
-     * @param createdAt Timestamp when the asset was listed
-     */
     struct Asset {
         uint256 id;
-        string name;
+        address nftAddress;
+        uint256 tokenId;
         uint256 price;
         address seller;
-        string category;
         bool isActive;
         uint256 createdAt;
     }
@@ -90,30 +59,29 @@ IMarketplace
     //                           MAPPINGS
     // =============================================================
 
-    /// @dev Mapping from asset ID to asset details
     mapping(uint256 => Asset) public assets;
-
-    /// @dev Mapping from seller to their listed asset IDs
     mapping(address => uint256[]) public sellerAssets;
-
-    /// @dev Mapping to check if an asset ID exists
     mapping(uint256 => bool) public assetExists;
+
+    /// @dev Prevents the same NFT from being listed twice
+    mapping(address => mapping(uint256 => uint256)) public nftToAssetId;
+
+    /// @dev Reserved storage space for future upgrades
+    uint256[42] private __gap;
 
     // =============================================================
     //                            EVENTS
     // =============================================================
 
-    /// @dev Emitted when an asset is listed
     event AssetListed(
         uint256 indexed assetId,
         address indexed seller,
-        string name,
+        address indexed nftAddress,
+        uint256 tokenId,
         uint256 price,
-        string category,
         uint256 timestamp
     );
 
-    /// @dev Emitted when an asset is purchased
     event AssetPurchased(
         uint256 indexed assetId,
         address indexed buyer,
@@ -123,60 +91,32 @@ IMarketplace
         uint256 timestamp
     );
 
-    /// @dev Emitted when an asset is delisted
     event AssetDelisted(uint256 indexed assetId, address indexed seller, uint256 timestamp);
-
-    /// @dev Emitted when marketplace fee is updated
+    event AssetPriceUpdated(uint256 indexed assetId, uint256 oldPrice, uint256 newPrice);
     event FeeCollectorUpdated(address indexed oldCollector, address indexed newCollector);
-
-    /// @dev Emitted when fees are withdrawn
-    event FeesWithdrawn(address indexed collector, uint256 amount);
 
     // =============================================================
     //                          MODIFIERS
     // =============================================================
 
-    /**
-     * @dev Ensures the asset exists and is active
-     * @param assetId The ID of the asset to check
-     */
     modifier assetIsActive(uint256 assetId) {
         require(assetExists[assetId], "Asset does not exist");
         require(assets[assetId].isActive, "Asset is not active");
         _;
     }
 
-    /**
-     * @dev Ensures the caller is the seller of the asset
-     * @param assetId The ID of the asset
-     */
     modifier onlySeller(uint256 assetId) {
         require(assets[assetId].seller == msg.sender, "Not the asset seller");
         _;
     }
 
-    /**
-     * @dev Validates string input length
-     * @param str The string to validate
-     * @param maxLength The maximum allowed length
-     */
-    modifier validString(string memory str, uint256 maxLength) {
-        require(bytes(str).length > 0, "String cannot be empty");
-        require(bytes(str).length <= maxLength, "String too long");
-        _;
-    }
-
-    /**
-     * @dev Validates price is within acceptable range
-     * @param price The price to validate
-     */
     modifier validPrice(uint256 price) {
         require(price >= MIN_PRICE && price <= MAX_PRICE, "Price out of range");
         _;
     }
 
     // =============================================================
-    //                        CONSTRUCTOR
+    //                      INITIALIZATION
     // =============================================================
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -184,17 +124,6 @@ IMarketplace
         _disableInitializers();
     }
 
-    // =============================================================
-    //                      INITIALIZATION
-    // =============================================================
-
-    /**
-     * @notice Initializes the NFT marketplace
-     * @dev This function replaces the constructor for upgradeable contracts
-     * @param _paymentToken Address of the token used for payments
-     * @param _owner Address of the contract owner
-     * @param _feeCollector Address that will receive marketplace fees
-     */
     function initialize(
         IERC20 _paymentToken,
         address _owner,
@@ -210,7 +139,7 @@ IMarketplace
 
         paymentToken = _paymentToken;
         feeCollector = _feeCollector;
-        nextAssetId = 1; // Start IDs from 1
+        nextAssetId = 1;
     }
 
     // =============================================================
@@ -218,53 +147,71 @@ IMarketplace
     // =============================================================
 
     /**
-     * @notice Lists an asset for sale in the marketplace
-     * @dev Creates a new asset listing with validation
-     * @param name Name/description of the asset
-     * @param price Price of the asset in payment tokens
-     * @param category Category of the asset
+     * @notice Lists an NFT for sale with escrow.
+     * @dev The seller must approve this contract to transfer the NFT BEFORE calling this.
+     * The NFT is transferred to the marketplace (escrow) upon listing.
+     * @param _nftAddress The address of the ERC721 contract
+     * @param _tokenId The token ID of the NFT
+     * @param _price The listing price in payment tokens
      */
     function listAsset(
-        string memory name,
-        uint256 price,
-        string memory category
+        address _nftAddress,
+        uint256 _tokenId,
+        uint256 _price
     )
-    external
-    override
-    whenNotPaused
-    validString(name, MAX_NAME_LENGTH)
-    validString(category, MAX_CATEGORY_LENGTH)
-    validPrice(price)
+        external
+        whenNotPaused
+        validPrice(_price)
     {
+        require(_nftAddress != address(0), "NFT address cannot be zero");
+
+        IERC721 nft = IERC721(_nftAddress);
+        require(nft.ownerOf(_tokenId) == msg.sender, "Not the owner of the NFT");
+        require(
+            nft.getApproved(_tokenId) == address(this) || nft.isApprovedForAll(msg.sender, address(this)),
+            "Marketplace not approved to transfer NFT"
+        );
+
+        // Prevent duplicate listings of the same NFT
+        uint256 existingAssetId = nftToAssetId[_nftAddress][_tokenId];
+        require(
+            existingAssetId == 0 || !assets[existingAssetId].isActive,
+            "NFT already listed"
+        );
+
+        // Escrow: transfer NFT to marketplace
+        nft.transferFrom(msg.sender, address(this), _tokenId);
+
         uint256 assetId = nextAssetId++;
 
         assets[assetId] = Asset({
             id: assetId,
-            name: name,
-            price: price,
+            nftAddress: _nftAddress,
+            tokenId: _tokenId,
+            price: _price,
             seller: msg.sender,
-            category: category,
             isActive: true,
             createdAt: block.timestamp
         });
 
         assetExists[assetId] = true;
         sellerAssets[msg.sender].push(assetId);
+        nftToAssetId[_nftAddress][_tokenId] = assetId;
 
-        emit AssetListed(assetId, msg.sender, name, price, category, block.timestamp);
+        emit AssetListed(assetId, msg.sender, _nftAddress, _tokenId, _price, block.timestamp);
     }
 
     /**
-     * @notice Purchases a listed asset
-     * @dev Transfers payment from buyer to seller (minus fees) and marks asset as sold
+     * @notice Purchases a listed NFT.
+     * @dev Payment is split between seller and fee collector.
+     * NFT is transferred from escrow to the buyer.
      * @param assetId ID of the asset to purchase
      */
     function purchaseAsset(uint256 assetId)
-    external
-    override
-    whenNotPaused
-    nonReentrant
-    assetIsActive(assetId)
+        external
+        whenNotPaused
+        nonReentrant
+        assetIsActive(assetId)
     {
         Asset storage asset = assets[assetId];
         require(asset.seller != msg.sender, "Cannot purchase own asset");
@@ -272,189 +219,143 @@ IMarketplace
         uint256 fee = (asset.price * FEE_PERCENTAGE) / FEE_DENOMINATOR;
         uint256 sellerAmount = asset.price - fee;
 
-        // Mark asset as inactive before transfers to prevent reentrancy
+        // Effects before interactions
         asset.isActive = false;
         totalFeesCollected += fee;
 
-        // Transfer payment token from buyer
+        // Transfer payment tokens
         paymentToken.safeTransferFrom(msg.sender, asset.seller, sellerAmount);
         if (fee > 0) {
             paymentToken.safeTransferFrom(msg.sender, feeCollector, fee);
         }
 
+        // Transfer NFT from escrow to buyer
+        IERC721(asset.nftAddress).transferFrom(address(this), msg.sender, asset.tokenId);
+
         emit AssetPurchased(assetId, msg.sender, asset.seller, asset.price, fee, block.timestamp);
     }
 
     /**
-     * @notice Removes an asset from the marketplace
-     * @dev Only the seller can delist their own assets
+     * @notice Removes an NFT listing and returns the NFT to the seller.
      * @param assetId ID of the asset to delist
      */
     function delistAsset(uint256 assetId)
-    external
-    override
-    assetIsActive(assetId)
-    onlySeller(assetId)
+        external
+        assetIsActive(assetId)
+        onlySeller(assetId)
     {
-        assets[assetId].isActive = false;
+        Asset storage asset = assets[assetId];
+        asset.isActive = false;
+
+        // Return NFT from escrow to seller
+        IERC721(asset.nftAddress).transferFrom(address(this), msg.sender, asset.tokenId);
+
         emit AssetDelisted(assetId, msg.sender, block.timestamp);
     }
 
     /**
-     * @notice Updates the price of a listed asset
-     * @dev Only the seller can update their asset price
+     * @notice Updates the price of a listed NFT
      * @param assetId ID of the asset to update
      * @param newPrice New price for the asset
      */
     function updateAssetPrice(uint256 assetId, uint256 newPrice)
-    external
-    assetIsActive(assetId)
-    onlySeller(assetId)
-    validPrice(newPrice)
+        external
+        assetIsActive(assetId)
+        onlySeller(assetId)
+        validPrice(newPrice)
     {
+        uint256 oldPrice = assets[assetId].price;
         assets[assetId].price = newPrice;
-        emit AssetListed(
-            assetId,
-            msg.sender,
-            assets[assetId].name,
-            newPrice,
-            assets[assetId].category,
-            block.timestamp
-        );
+        emit AssetPriceUpdated(assetId, oldPrice, newPrice);
     }
 
     // =============================================================
     //                       ADMIN FUNCTIONS
     // =============================================================
 
-    /**
-     * @notice Updates the fee collector address
-     * @dev Only the contract owner can update the fee collector
-     * @param newFeeCollector New address to receive marketplace fees
-     */
     function setFeeCollector(address newFeeCollector) external onlyOwner {
         require(newFeeCollector != address(0), "Fee collector cannot be zero address");
-
         address oldCollector = feeCollector;
         feeCollector = newFeeCollector;
-
         emit FeeCollectorUpdated(oldCollector, newFeeCollector);
     }
 
-    /**
-     * @notice Pauses the marketplace
-     * @dev Only the contract owner can pause operations
-     */
     function pause() external onlyOwner {
         _pause();
     }
 
-    /**
-     * @notice Unpauses the marketplace
-     * @dev Only the contract owner can unpause operations
-     */
     function unpause() external onlyOwner {
         _unpause();
     }
 
     /**
-     * @notice Emergency function to delist any asset
-     * @dev Only the contract owner can use this function
-     * @param assetId ID of the asset to delist
+     * @notice Emergency function to delist any asset and return NFT to seller
+     * @param assetId ID of the asset to emergency delist
      */
-    function emergencyDelistAsset(uint256 assetId) external onlyOwner assetIsActive(assetId) {
-        assets[assetId].isActive = false;
-        emit AssetDelisted(assetId, assets[assetId].seller, block.timestamp);
+    function emergencyDelistAsset(uint256 assetId) external onlyOwner {
+        require(assetExists[assetId], "Asset does not exist");
+        require(assets[assetId].isActive, "Asset not active");
+
+        Asset storage asset = assets[assetId];
+        asset.isActive = false;
+
+        // Return NFT from escrow to seller
+        IERC721(asset.nftAddress).transferFrom(address(this), asset.seller, asset.tokenId);
+
+        emit AssetDelisted(assetId, asset.seller, block.timestamp);
     }
 
     // =============================================================
     //                       VIEW FUNCTIONS
     // =============================================================
 
-    /**
-     * @notice Gets detailed information about an asset
-     * @dev Returns all asset details including activity status
-     * @param assetId ID of the asset to query
-     * @return id Asset ID
-     * @return name Asset name
-     * @return price Asset price
-     * @return seller Seller address
-     * @return category Asset category
-     */
-    function getAsset(uint256 assetId)
-    external
-    view
-    override
-    returns (
-        uint256 id,
-        string memory name,
-        uint256 price,
-        address seller,
-        string memory category
-    )
-    {
-        require(assetExists[assetId], "Asset does not exist");
-        Asset memory asset = assets[assetId];
-        return (asset.id, asset.name, asset.price, asset.seller, asset.category);
-    }
-
-    /**
-     * @notice Gets complete asset information including status and timestamp
-     * @param assetId ID of the asset to query
-     * @return Complete asset struct
-     */
     function getAssetDetails(uint256 assetId) external view returns (Asset memory) {
         require(assetExists[assetId], "Asset does not exist");
         return assets[assetId];
     }
 
-    /**
-     * @notice Gets all asset IDs listed by a specific seller
-     * @param seller Address of the seller
-     * @return Array of asset IDs
-     */
     function getSellerAssets(address seller) external view returns (uint256[] memory) {
         return sellerAssets[seller];
     }
 
     /**
-     * @notice Gets the number of assets listed by a seller
-     * @param seller Address of the seller
-     * @return Number of assets listed
+     * @notice Calculates cost breakdown for a purchase
+     * @param assetId ID of the asset
+     * @return buyerPays Total the buyer needs to approve/pay (= listed price)
+     * @return sellerReceives Amount the seller receives after fee deduction
+     * @return fee Fee amount deducted from the seller's proceeds
      */
-    function getSellerAssetCount(address seller) external view returns (uint256) {
-        return sellerAssets[seller].length;
+    function calculateCost(uint256 assetId)
+        external
+        view
+        returns (uint256 buyerPays, uint256 sellerReceives, uint256 fee)
+    {
+        require(assetExists[assetId], "Asset does not exist");
+        buyerPays = assets[assetId].price;
+        fee = (buyerPays * FEE_PERCENTAGE) / FEE_DENOMINATOR;
+        sellerReceives = buyerPays - fee;
     }
 
-    /**
-     * @notice Checks if an asset is currently active
-     * @param assetId ID of the asset to check
-     * @return Whether the asset is active
-     */
-    function isAssetActive(uint256 assetId) external view returns (bool) {
-        return assetExists[assetId] && assets[assetId].isActive;
-    }
-
-    /**
-     * @notice Calculates the fee for a given price
-     * @param price The price to calculate fee for
-     * @return The fee amount
-     */
-    function calculateFee(uint256 price) external pure returns (uint256) {
-        return (price * FEE_PERCENTAGE) / FEE_DENOMINATOR;
-    }
-
-    /**
-     * @notice Gets the current marketplace statistics
-     * @return totalAssets Total number of assets ever listed
-     * @return totalFees Total fees collected
-     * @return feePercentage Current fee percentage
-     */
-    function getMarketplaceStats() external view returns (
-        uint256 totalAssets,
-        uint256 totalFees,
-        uint256 feePercentage
-    ) {
+    function getMarketplaceStats()
+        external
+        view
+        returns (uint256 totalAssets, uint256 totalFees, uint256 feePercentage)
+    {
         return (nextAssetId - 1, totalFeesCollected, FEE_PERCENTAGE);
+    }
+
+    // =============================================================
+    //                    ERC721 RECEIVER
+    // =============================================================
+
+    /**
+     * @notice Handles the receipt of an NFT (required for safeTransferFrom compatibility)
+     */
+    function onERC721Received(address, address, uint256, bytes calldata)
+        external
+        pure
+        returns (bytes4)
+    {
+        return this.onERC721Received.selector;
     }
 }

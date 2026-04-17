@@ -3,6 +3,8 @@ name: Deploy e Verify
 on:
   push:
     branches:
+      - main
+      - develop
       - feature/gamificacao
       - feature/refatoracao
 
@@ -10,27 +12,57 @@ env:
   NETWORK: optimism
 
 jobs:
-  deploy:
+  build-and-test:
     runs-on: ubuntu-latest
+    name: Build and Test
 
     steps:
+      # Checkout do código
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
+      # Setup Node.js
       - name: Set up Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
+      # Instalar dependências
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      - name: List dependencies
-        run: npm list @openzeppelin/hardhat-upgrades
+      # Compilar contratos
+      - name: Compile contracts
+        run: npx hardhat compile
 
-      - name: Reinstall upgrades
-        run: npm install --save-dev @openzeppelin/hardhat-upgrades
+      # Executar testes
+      - name: Run tests
+        run: npx hardhat test
 
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    name: Deploy Contracts
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+
+    steps:
+      # Checkout do código
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Setup Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Instalar dependências
+      - name: Install dependencies
+        run: npm ci
+
+      # Deploy dos contratos
       - name: Deploy contracts
         env:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }} # Chave privada como segredo
