@@ -1,43 +1,79 @@
-name: Deploy e Verify
+name: Validate and deploy to Optimism Sepolia
 
 on:
+  pull_request:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      deploy_testnet:
+        description: Deploy the reviewed main branch to Optimism Sepolia
+        required: true
+        type: boolean
+        default: false
 
-env:
-  NETWORK: sepolia
+permissions:
+  contents: read
 
 jobs:
-  deploy:
+  validate:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 24
+          cache: npm
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install locked dependencies
+        run: npm ci
 
-      - name: List dependencies
-        run: npm list @openzeppelin/hardhat-upgrades
+      - name: Audit high and critical dependency advisories
+        run: npm audit --audit-level=high
 
-      - name: Reinstall upgrades
-        run: npm install --save-dev @openzeppelin/hardhat-upgrades
+      - name: Compile contracts
+        run: npm run compile
 
-      - name: Deploy contracts
+      - name: Run tests
+        run: npm test
+
+  deploy-testnet:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_testnet == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: optimism-sepolia
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Audit high and critical dependency advisories
+        run: npm audit --audit-level=high
+
+      - name: Compile contracts
+        run: npm run compile
+
+      - name: Run tests
+        run: npm test
+
+      - name: Deploy to Optimism Sepolia
         env:
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }} # Chave privada como segredo
-          INFURA_SEPOLIA_URL: ${{ secrets.INFURA_SEPOLIA_URL }} # URL RPC da Sepolia como segredo
-          DEPLOYER_ADDRESS: ${{ secrets.DEPLOYER_ADDRESS }} # Endereço da carteira do deployer
-          NAME_TOKEN: ${{ vars.NAME_TOKEN }} # Nome do token
-          SYMBOL: ${{ vars.SYMBOL }} # Símbolo do token GAME_CONTRACT_ADDRESS
-          GAME_CONTRACT_ADDRESS: ${{ vars.GAME_CONTRACT_ADDRESS }} 
-          LOGIC_CONTRACT_ADDRESS: ${{ vars.LOGIC_CONTRACT_ADDRESS }} 
-          PROXY_CONTRACT_ADDRESS: ${{ vars.PROXY_CONTRACT_ADDRESS }}
-        run: npx hardhat run scripts/deploy.js --network $NETWORK
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          OPTIMISM_SEPOLIA_RPC_URL: ${{ secrets.OPTIMISM_SEPOLIA_RPC_URL }}
+          CDX_ADMIN_ADDRESS: ${{ vars.CDX_ADMIN_ADDRESS }}
+          NAME_TOKEN: ${{ vars.NAME_TOKEN }}
+          SYMBOL: ${{ vars.SYMBOL }}
+        run: npm run deploy:testnet

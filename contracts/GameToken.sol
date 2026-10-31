@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract GameToken is Initializable, OwnableUpgradeable {
+contract GameToken is Ownable {
     struct PlayerData {
         uint256 level;
     }
@@ -13,10 +12,7 @@ contract GameToken is Initializable, OwnableUpgradeable {
 
     event LevelUp(address indexed player, uint256 newLevel);
 
-    function initialize(address _owner) public initializer {
-        __Ownable_init(_owner);
-        _transferOwnership(_owner);
-    }
+    constructor() Ownable(msg.sender) {}
 
     function levelUp(address player) external onlyOwner {
         require(player != address(0), "Invalid player address");

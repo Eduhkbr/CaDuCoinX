@@ -1,79 +1,58 @@
-const { ethers } = require("hardhat");
+const { ethers, upgrades } = require("hardhat");
 
-
-async function deployGameTokenContract() {
-    console.log("Deploying GameToken...");
-    const gameToken = await ethers.getContractFactory("GameToken");
-    const game = await gameToken.deploy();
-    await game.deployed();
-    console.log("GameToken deployed at:", game.address);
-    return game;
-}
-
-async function deployLogicContract() {
-    console.log("Deploying CaDuCoinXToken...");
-    const CaDuCoinXToken = await ethers.getContractFactory("CaDuCoinXToken");
-    const logic = await CaDuCoinXToken.deploy();
-    await logic.deployed();
-    console.log("CaDuCoinXToken deployed at:", logic.address);
-    return logic;
-}
-
-async function deployProxyContract(logicAddress, initializeData) {
-    console.log("Deploying CaDuCoinXTokenProxy...");
-    const CaDuCoinXTokenProxy = await ethers.getContractFactory("CaDuCoinXTokenProxy");
-    const proxy = await CaDuCoinXTokenProxy.deploy(logicAddress, initializeData);
-    await proxy.deployed();
-    console.log("CaDuCoinXTokenProxy deployed at:", proxy.address);
-    return proxy;
-}
+const OPTIMISM_SEPOLIA_CHAIN_ID = 11155420n;
 
 async function main() {
-    // Validando variáveis de ambiente
-    if (!process.env.DEPLOYER_ADDRESS || !process.env.NAME_TOKEN 
-        || !process.env.SYMBOL) {
-        throw new Error("Variáveis de ambiente necessárias não foram definidas.");
+    const required = ["PRIVATE_KEY", "OPTIMISM_SEPOLIA_RPC_URL", "CDX_ADMIN_ADDRESS", "NAME_TOKEN", "SYMBOL"];
+    const missing = required.filter((name) => !process.env[name]);
+    if (missing.length > 0) {
+        throw new Error(`Missing required environment variables: ${missing.join(", ")}`);
     }
 
-    // Validando se é necessário a realização da etapa de deploy
-    if(!process.env.LOGIC_CONTRACT_ADDRESS && !process.env.GAME_CONTRACT_ADDRESS) {
-
-        // Deploy do contrato gamificado
-        const gameToken = await deployGameTokenContract();
-
-        // Deploy do contrato lógico
-        const logic = await deployLogicContract();
-
-        // Codificar os dados de inicialização
-        const CaDuCoinXToken = await ethers.getContractFactory("CaDuCoinXToken");
-        const initializeData = CaDuCoinXToken.interface.encodeFunctionData("initialize", [
-            process.env.DEPLOYER_ADDRESS,
-            process.env.NAME_TOKEN,
-            process.env.SYMBOL,
-            gameToken.address
-        ]);
-
-        // Deploy do proxy
-        const proxy = await deployProxyContract(logic.address, initializeData);
-
-        // Exibir informações do deploy
-        console.log("Proxy game address:", gameToken.address);
-        console.log("Proxy logic address:", logic.address);
-        console.log("Proxy proxy address:", proxy.address);
-        console.log("Proxy initialized with:", initializeData);
-    } else {
-        // Exibir informações do deploy
-        console.log("Proxy game address:", process.env.GAME_CONTRACT_ADDRESS);
-        console.log("Proxy logic address:", process.env.LOGIC_CONTRACT_ADDRESS);
-        console.log("Proxy proxy address:", process.env.PROXY_CONTRACT_ADDRESS);
-        console.log("Proxy initialized with:", process.env.INITIALIZE_DATA);
+    const network = await ethers.provider.getNetwork();
+    if (network.chainId !== OPTIMISM_SEPOLIA_CHAIN_ID) {
+        throw new Error(`Refusing deployment: expected Optimism Sepolia (${OPTIMISM_SEPOLIA_CHAIN_ID}), got ${network.chainId}`);
     }
+
+    const adminAddress = ethers.getAddress(process.env.CDX_ADMIN_ADDRESS);
+    if (adminAddress === ethers.ZeroAddress) {
+        throw new Error("CDX_ADMIN_ADDRESS must not be the zero address");
+    }
+
+    const [deployer] = await ethers.getSigners();
+    if (!deployer) {
+        throw new Error("No deployer signer is configured");
+    }
+    console.log("Deploying from:", await deployer.getAddress());
+
+    const GameToken = await ethers.getContractFactory("GameToken");
+    const gameToken = await GameToken.deploy();
+    await gameToken.waitForDeployment();
+
+    const CaDuCoinXToken = await ethers.getContractFactory("CaDuCoinXToken");
+    const token = await upgrades.deployProxy(
+        CaDuCoinXToken,
+        [adminAddress, process.env.NAME_TOKEN, process.env.SYMBOL, await gameToken.getAddress()],
+        { kind: "uups" }
+    );
+    await token.waitForDeployment();
+
+    const tokenAddress = await token.getAddress();
+    await (await gameToken.transferOwnership(tokenAddress)).wait();
+
+    const gameOwner = ethers.getAddress(await gameToken.owner());
+    if (gameOwner !== ethers.getAddress(tokenAddress)) {
+        throw new Error("GameToken ownership transfer to the CDX proxy was not confirmed");
+    }
+
+    console.log("GameToken:", await gameToken.getAddress());
+    console.log("CaDuCoinX implementation:", await upgrades.erc1967.getImplementationAddress(tokenAddress));
+    console.log("CaDuCoinX proxy:", tokenAddress);
+    console.log("CDX admin:", adminAddress);
+    console.log("Chain ID:", network.chainId.toString());
 }
 
-// Chamando a função principal com tratamento de erros
-main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error("Erro durante o deploy:", error);
-        process.exit(1);
-    });
+main().catch((error) => {
+    console.error("Deployment failed:", error.message);
+    process.exitCode = 1;
+});
