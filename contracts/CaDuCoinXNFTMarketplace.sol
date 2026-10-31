@@ -48,6 +48,7 @@ contract CaDuCoinXNFTMarketplace is
         uint256 fee
     );
     event ListingCancelled(address indexed seller, address indexed nft, uint256 indexed tokenId);
+    event StaleListingCleared(address indexed caller, address indexed seller, address indexed nft, uint256 tokenId);
     event ListingPriceUpdated(address indexed seller, address indexed nft, uint256 indexed tokenId, uint256 price);
     event FeeCollectorUpdated(address indexed oldCollector, address indexed newCollector);
 
@@ -115,6 +116,20 @@ contract CaDuCoinXNFTMarketplace is
         delete listings[nft][tokenId];
         IERC721(nft).safeTransferFrom(address(this), msg.sender, tokenId);
         emit ListingCancelled(msg.sender, nft, tokenId);
+    }
+
+    /// @notice Clears stale metadata if an NFT administrator removed the escrowed token.
+    /// @dev This does not recover an NFT that its collection burned or reassigned.
+    function clearStaleListing(address nft, uint256 tokenId) external nonReentrant {
+        Listing memory listing = listings[nft][tokenId];
+        require(listing.seller != address(0), "NFT not listed");
+
+        (bool success, bytes memory result) = nft.staticcall(abi.encodeCall(IERC721.ownerOf, (tokenId)));
+        bool stillEscrowed = success && result.length >= 32 && abi.decode(result, (address)) == address(this);
+        require(!stillEscrowed, "NFT remains in escrow");
+
+        delete listings[nft][tokenId];
+        emit StaleListingCleared(msg.sender, listing.seller, nft, tokenId);
     }
 
     function updateListingPrice(address nft, uint256 tokenId, uint256 newPrice) external whenNotPaused {

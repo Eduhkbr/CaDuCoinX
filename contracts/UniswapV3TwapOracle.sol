@@ -27,12 +27,13 @@ contract UniswapV3TwapOracle {
         address quoteToken,
         uint128 baseAmount,
         uint32 secondsAgo
-    ) external view returns (uint256 quoteAmount, uint128 harmonicMeanLiquidity) {
+    ) external view returns (uint256 quoteAmount, uint128 harmonicMeanLiquidity, uint128 currentLiquidity) {
         _validatePool(pool, baseToken, quoteToken);
         require(baseAmount > 0, "Base amount is zero");
         (int24 arithmeticMeanTick, uint128 meanLiquidity) = OracleLibrary.consult(pool, secondsAgo);
         quoteAmount = OracleLibrary.getQuoteAtTick(arithmeticMeanTick, baseAmount, baseToken, quoteToken);
         harmonicMeanLiquidity = meanLiquidity;
+        currentLiquidity = IUniswapV3Pool(pool).liquidity();
     }
 
     function _validatePool(address pool, address tokenA, address tokenB) private view {

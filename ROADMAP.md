@@ -1,15 +1,15 @@
 # CaDuCoinX — diagnóstico e roadmap
 
-**Estado atual:** 27 testes Hardhat passam após integrar venda/recompra de CDX e marketplace NFT separado. A auditoria atual não reporta advisories altos/críticos; 40 avisos moderados/baixos permanecem. Consulte a seção 13 para as mudanças deste ciclo.
+**Estado atual:** 33 testes Hardhat passam após integrar recompra limitada por TWAP, marketplace NFT e mitigação dos achados desta revisão. `npm audit --audit-level=high` não reporta advisories altos/críticos; 43 avisos baixos/moderados permanecem (13 baixos, 30 moderados). Consulte a seção 13 para o estado corrente.
 **Regra de release:** nenhum deploy de produção está autorizado por este documento.
 
 **Nota de leitura:** as seções 1–10 registram o diagnóstico e o plano anteriores às correções; a seção 13 é a fonte para o estado e backlog atuais. As seções 11–12 também são registros históricos dos ciclos anteriores.
 
 ## 1. Resumo executivo
 
-O checkout atual contém CDX ERC-20 upgradeable com cap de 1 bilhão, compra/recompra ETH com obrigação de backing, staking com APR fixada e rewards reservados, níveis `GameToken` e marketplace NFT UUPS em contrato separado com fee de 0,9%. `npm ci`, compilação limpa e 27 testes passam. A auditoria npm não mostra achados altos/críticos, mas mantém 40 avisos transitivos moderados/baixos.
+O projeto contém CDX ERC-20 upgradeable com cap de 1 bilhão, venda primária em ETH, recompra opcional a partir de orçamento multisig e cotação TWAP, staking com APR fixada e rewards reservados, níveis `GameToken` e marketplace NFT UUPS separado com fee de 0,9%. Mint e staking não exigem colateral ETH; `purchaseItem` está desabilitado até implementar entrega/liquidação. `npm ci`, compilação limpa de 60 fontes e 33 testes passam. A auditoria npm não mostra advisories altos/críticos, mas mantém 43 avisos transitivos baixos/moderados.
 
-O projeto não está pronto para deploy de ativos reais: backing e tokenomics precisam de revisão independente; o marketplace `purchaseItem` permanece sem settlement; nenhuma execução de CI remota, auditoria formal ou implantação foi feita neste ciclo.
+O projeto não está pronto para deploy de ativos reais: recompra depende de pool e parâmetros operacionais ainda não validados em testnet, `purchaseItem` está desabilitado até implementar settlement, e não houve auditoria formal ou implantação.
 
 ## 2. Diagnóstico do projeto
 
@@ -252,6 +252,7 @@ Esta seção registra a implementação posterior aos achados da seção 11. Os 
 - O mint administrativo e os rewards de staking são limitados pelo cap; rewards são reservados no início do stake. Não existe colateral ETH integral para supply ou rewards.
 - Recompra é opcional e não garante preço mínimo ou resgate. A administração transfere ETH para o contrato e aloca orçamento manualmente; a tesouraria só retira ETH não alocado. Vendas primárias não alocam orçamento automaticamente.
 - A cotação paga 98% do TWAP de 30 minutos do pool Uniswap V3 CDX/WETH, não 98% do preço primário. O vendedor define `minEthOut`; CDX é queimado e ETH é transferido atomicamente dentro do orçamento disponível.
+- Tanto a liquidez harmônica histórica quanto a liquidez ativa no tick atual precisam superar o limiar configurado. Isso reduz o risco de cotar contra pool sem liquidez ativa, mas não equivale a simular a profundidade exata para cada tamanho de venda.
 - Sem factory, pool reconhecido, histórico de pelo menos 30 minutos ou liquidez harmônica mínima, ativação/cotação falha sem fallback. Buyback começa desativado; a administração deve validar endereço da factory/pool, observações e liquidez antes de ativar.
 - Deploy de testnet implanta o adaptador oracle, mas não configura pool, não aloca orçamento e não ativa recompra. Factory da Optimism Sepolia deve ser fornecida por variável de ambiente e validada contra a rede antes do deploy.
 
@@ -260,15 +261,19 @@ Esta seção registra a implementação posterior aos achados da seção 11. Os 
 | Check | Estado | Critério |
 | --- | --- | --- |
 | Pool e TWAP | Validado localmente | Testes cobrem par/factory, cotação a 98% do TWAP, histórico insuficiente, liquidez mínima e `minEthOut`; disponibilidade real da testnet continua pendente. |
-| Orçamento | Validado localmente | Testes provam limite de orçamento, retirada apenas do não alocado e rollback de burn/accounting quando o vendedor rejeita ETH. |
+| Orçamento | Validado localmente | Testes provam limite, desalocação apenas com recompra desativada, retirada de ETH não alocado e rollback de burn/accounting quando pagamento falha. |
+| Desalocação | Validado localmente | Com recompra desativada, multisig pode mover orçamento de volta à parcela não alocada e retirar ETH; valor acima do budget é rejeitado. |
+| Liquidez do pool | Validado localmente | Buyback requer limiar tanto para média harmônica TWAP quanto para liquidez ativa atual; histórico alto com liquidez atual zero é rejeitado. O limiar não simula profundidade para o tamanho integral da ordem. |
+| Compra de itens | Desabilitada até settlement | `purchaseItem` reverte sem mover CDX enquanto entrega e liquidação não estiverem implementadas; teste verifica saldo do usuário e contrato. |
+| NFTs com admin privilegiado | Risco externo mitigado parcialmente | Se a coleção queimar ou retirar NFT do escrow, qualquer pessoa pode limpar listing obsoleta; o marketplace não recupera ativo queimado/transferido pelo contrato da coleção. |
 | Cap e staking | Validado localmente | Suíte cobre cap, rewards reservados, mint sem colateral, quatro prazos e saque maduro durante pausa. |
 | Upgrade/layout | Testes locais passaram | Teste de upgrade preserva stakes/reservas e estado de recompra; revisão final de layout antes de publicar continua necessária. |
-| Dependências e checks | Validado localmente | Node 24: `npm ci` passou; compilação limpa passou (59 fontes); `npm test` passou (31 testes); `npm audit --audit-level=high` passou sem altos/críticos, com 43 avisos baixos/moderados (13 baixos, 30 moderados). |
+| Dependências e checks | Validado localmente | Node 24: `npm ci` passou; compilação limpa passou (60 fontes); `npm test` passou (33 testes); `npm audit --audit-level=high` passou sem altos/críticos, com 43 avisos baixos/moderados (13 baixos, 30 moderados). |
 | Testnet | Não executado | Confirmar factory oficial, suporte/histórico e liquidez do pool CDX/WETH na Optimism Sepolia. Não realizar deploy neste ciclo. |
 
 ### Limitações operacionais
 
-- TWAP reduz dependência de preço spot, mas não elimina manipulação econômica em pools com liquidez baixa. O limite de liquidez harmônica é parâmetro operacional e requer análise adequada para a escala de CDX.
+- TWAP reduz dependência de preço spot, mas não elimina manipulação econômica em pools com liquidez baixa. Os limites de liquidez harmônica e ativa são parâmetros operacionais e requerem análise adequada para a escala e o tamanho de ordens CDX.
 - TWAP não valida valor fundamental nem garante que o contrato tenha orçamento suficiente. `minEthOut` protege o vendedor contra cotação abaixo de sua expectativa; não limita risco de preço futuro ou de governança.
-- Alterar pool ou mínimo de liquidez requer recompra desativada. Configuração/ativação/orçamento devem ficar sob multisig; manter recompra desativada até verificar contrato, pool, observações e fundos.
-- Testes mockados validam a integração ABI e falhas esperadas, mas não provam a existência de histórico ou liquidez adequada em Optimism Sepolia.
+- Alterar pool ou limiar de liquidez requer recompra desativada. O owner pode desalocar budget apenas quando a recompra estiver desativada. Configuração/ativação/orçamento devem ficar sob multisig; manter recompra desativada até verificar contrato, pool, observações e fundos.
+- Testes mockados validam a integração ABI e falhas esperadas, mas não provam a existência de histórico, profundidade ou liquidez adequada em Optimism Sepolia. Coleções ERC-721 com admin capaz de alterar custódia permanecem um risco externo; limpar listing obsoleta não recupera o NFT.

@@ -105,6 +105,29 @@ describe("CaDuCoinX NFT marketplace", function () {
         await marketplace.unpause();
     });
 
+    it("clears stale listings after an NFT administrator burns or reassigns escrowed tokens", async function () {
+        const MutableNFT = await ethers.getContractFactory("AdminMutableERC721");
+        const mutableNFT = await MutableNFT.deploy();
+        await mutableNFT.waitForDeployment();
+
+        for (const tokenId of [21, 22]) {
+            await mutableNFT.mint(await alice.getAddress(), tokenId);
+            await mutableNFT.connect(alice).approve(await marketplace.getAddress(), tokenId);
+            await marketplace.connect(alice).listNFT(await mutableNFT.getAddress(), tokenId, price);
+        }
+
+        await mutableNFT.adminTransfer(await marketplace.getAddress(), await owner.getAddress(), 21);
+        await mutableNFT.adminBurn(22);
+        await expect(marketplace.connect(bob).clearStaleListing(await mutableNFT.getAddress(), 21))
+            .to.emit(marketplace, "StaleListingCleared")
+            .withArgs(await bob.getAddress(), await alice.getAddress(), await mutableNFT.getAddress(), 21);
+        await marketplace.connect(bob).clearStaleListing(await mutableNFT.getAddress(), 22);
+
+        expect((await marketplace.listings(await mutableNFT.getAddress(), 21)).seller).to.equal(ethers.ZeroAddress);
+        expect((await marketplace.listings(await mutableNFT.getAddress(), 22)).seller).to.equal(ethers.ZeroAddress);
+        expect(await mutableNFT.ownerOf(21)).to.equal(await owner.getAddress());
+    });
+
     it("prevents an NFT receiver from reentering and buying a listing twice", async function () {
         await list(6);
         const ReentrantNFTBuyer = await ethers.getContractFactory("ReentrantNFTBuyer");

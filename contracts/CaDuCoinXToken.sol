@@ -13,7 +13,7 @@ import "./GameToken.sol";
 interface IUniswapV3TwapOracle {
     function isValidPool(address pool, address tokenA, address tokenB) external view returns (bool);
     function quoteAtTwap(address pool, address baseToken, address quoteToken, uint128 baseAmount, uint32 secondsAgo)
-        external view returns (uint256 quoteAmount, uint128 harmonicMeanLiquidity);
+        external view returns (uint256 quoteAmount, uint128 harmonicMeanLiquidity, uint128 currentLiquidity);
 }
 
 contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable, PausableUpgradeable {
@@ -82,6 +82,7 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
     event BuybackPoolConfigured(address indexed pool, address indexed weth, uint128 minimumHarmonicLiquidity);
     event BuybackStatusUpdated(bool active);
     event BuybackBudgetAllocated(address indexed allocator, uint256 amount, uint256 totalBudget);
+    event BuybackBudgetDeallocated(address indexed allocator, uint256 amount, uint256 totalBudget);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -172,9 +173,9 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
     function setBuybackActive(bool active) external onlyOwner {
         if (active) {
             require(buybackPool != address(0), "Buyback pool not configured");
-            (uint256 quote, uint128 harmonicLiquidity) = _quoteBuyback(10 ** DECIMALS);
+            (uint256 quote, uint128 harmonicLiquidity, uint128 currentLiquidity) = _quoteBuyback(10 ** DECIMALS);
             require(quote > 0, "Invalid TWAP quote");
-            require(harmonicLiquidity >= minimumTwapLiquidity, "Insufficient TWAP liquidity");
+            _requireSufficientLiquidity(harmonicLiquidity, currentLiquidity);
         }
         buybackActive = active;
         emit BuybackStatusUpdated(active);
@@ -189,12 +190,20 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
         emit BuybackBudgetAllocated(msg.sender, amount, buybackBudget);
     }
 
+    function deallocateBuybackBudget(uint256 amount) external onlyOwner {
+        require(!buybackActive, "Disable buybacks first");
+        require(amount > 0, "Budget amount is zero");
+        require(amount <= buybackBudget, "Amount exceeds buyback budget");
+        buybackBudget -= amount;
+        emit BuybackBudgetDeallocated(msg.sender, amount, buybackBudget);
+    }
+
     function sellTokens(uint256 amount, uint256 minEthOut) external nonReentrant whenNotPaused {
         require(buybackActive, "Buybacks are inactive");
         require(amount > 0, "Amount must be greater than zero");
         require(amount <= type(uint128).max, "Amount exceeds TWAP range");
-        (uint256 ethAmount, uint128 harmonicLiquidity) = _quoteBuyback(amount);
-        require(harmonicLiquidity >= minimumTwapLiquidity, "Insufficient TWAP liquidity");
+        (uint256 ethAmount, uint128 harmonicLiquidity, uint128 currentLiquidity) = _quoteBuyback(amount);
+        _requireSufficientLiquidity(harmonicLiquidity, currentLiquidity);
         require(ethAmount > 0, "ETH amount too small");
         require(ethAmount >= minEthOut, "Below minimum ETH output");
         require(ethAmount <= buybackBudget, "Insufficient buyback budget");
@@ -208,9 +217,12 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
         emit TokensSold(msg.sender, amount, ethAmount);
     }
 
-    function _quoteBuyback(uint256 amount) private view returns (uint256 ethAmount, uint128 harmonicLiquidity) {
+    function _quoteBuyback(uint256 amount)
+        private view returns (uint256 ethAmount, uint128 harmonicLiquidity, uint128 currentLiquidity)
+    {
         require(buybackPool != address(0), "Buyback pool not configured");
-        (uint256 twapQuote, uint128 meanLiquidity) = buybackOracle.quoteAtTwap(
+        uint256 twapQuote;
+        (twapQuote, harmonicLiquidity, currentLiquidity) = buybackOracle.quoteAtTwap(
             buybackPool,
             address(this),
             buybackWeth,
@@ -218,7 +230,11 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
             BUYBACK_TWAP_WINDOW
         );
         ethAmount = Math.mulDiv(twapQuote, BUYBACK_PRICE_BPS, BPS_DENOMINATOR);
-        harmonicLiquidity = meanLiquidity;
+    }
+
+    function _requireSufficientLiquidity(uint128 harmonicLiquidity, uint128 currentLiquidity) private view {
+        require(harmonicLiquidity >= minimumTwapLiquidity, "Insufficient TWAP liquidity");
+        require(currentLiquidity >= minimumTwapLiquidity, "Insufficient current liquidity");
     }
 
     function depositEth() external payable onlyOwner {
@@ -249,8 +265,8 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
 
     function calculateEthForTokens(uint256 tokenAmount) external view returns (uint256) {
         require(tokenAmount <= type(uint128).max, "Amount exceeds TWAP range");
-        (uint256 quote, uint128 harmonicLiquidity) = _quoteBuyback(tokenAmount);
-        require(harmonicLiquidity >= minimumTwapLiquidity, "Insufficient TWAP liquidity");
+        (uint256 quote, uint128 harmonicLiquidity, uint128 currentLiquidity) = _quoteBuyback(tokenAmount);
+        _requireSufficientLiquidity(harmonicLiquidity, currentLiquidity);
         return quote;
     }
 
@@ -275,14 +291,8 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
     }
 
     /// @notice Permite a compra de um item, transferindo tokens do comprador para o contrato.
-    function purchaseItem(uint256 itemId) public whenNotPaused {
-        Item memory item = items[itemId];
-        require(item.price > 0, "Item does not exist");
-        require(balanceOf(msg.sender) >= item.price, "Insufficient balance");
-
-        // Transferência segura com verificação implícita pela função _transfer
-        _transfer(msg.sender, address(this), item.price);
-        emit ItemPurchased(msg.sender, itemId, item.price);
+    function purchaseItem(uint256) external view whenNotPaused {
+        revert("Item delivery not implemented");
     }
 
     /// @notice Realiza o stake de tokens por um período específico.

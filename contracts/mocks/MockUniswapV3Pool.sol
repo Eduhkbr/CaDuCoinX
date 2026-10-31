@@ -8,6 +8,7 @@ contract MockUniswapV3Pool {
     uint24 public immutable fee;
     int24 public tick;
     uint128 public harmonicLiquidity;
+    uint128 private currentLiquidityValue;
     uint32 public historySeconds;
 
     constructor(address factory_, address token0_, address token1_, uint24 fee_) {
@@ -16,13 +17,23 @@ contract MockUniswapV3Pool {
         token1 = token1_;
         fee = fee_;
         harmonicLiquidity = 1_000_000;
+        currentLiquidityValue = 1_000_000;
         historySeconds = 30 minutes;
     }
 
     function setOracle(int24 tick_, uint128 liquidity_, uint32 historySeconds_) external {
         tick = tick_;
         harmonicLiquidity = liquidity_;
+        currentLiquidityValue = liquidity_;
         historySeconds = historySeconds_;
+    }
+
+    function setCurrentLiquidity(uint128 liquidity_) external {
+        currentLiquidityValue = liquidity_;
+    }
+
+    function liquidity() external view returns (uint128) {
+        return currentLiquidityValue;
     }
 
     function observe(uint32[] calldata secondsAgos)

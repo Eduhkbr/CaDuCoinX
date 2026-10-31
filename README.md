@@ -9,9 +9,9 @@ CaDuCoinX é um protótipo de token ERC-20 com staking e um marketplace de NFTs 
 - `depositEth` deposita ETH não alocado; a multisig administra orçamento com `allocateBuybackBudget`. `withdrawUnallocatedEth` só permite retirar ETH fora desse orçamento. Mint e staking não exigem colateral ETH; rewards ficam reservados contra o cap de supply. Pausa bloqueia venda primária e recompra, mas não transfers ERC-20 nem saques de staking maduros.
 - Staking por 90, 180, 270 ou 365 dias. A APR é expressa em basis points (`600 = 6%`, faixa configurável de 4,2% a 10%) e fica fixada no início do stake. O contrato reserva reward no cap; sem capacidade suficiente, o stake é recusado. Principal e reward reservado permanecem sacáveis após a maturidade, inclusive durante pausa.
 - Pausa administrativa bloqueia mint, compra/venda de CDX, novos stakes e listagens/compras de NFT. Transfers ERC-20, cancelamento de listagens e saques maduros continuam disponíveis.
-- Marketplace NFT separado e upgradeable: escrow, preço positivo definido pelo vendedor, pagamento em CDX, taxa de 0,9% para o fee collector e cancelamento disponível ao vendedor durante pausa. A taxa é arredondada para baixo em unidades mínimas de CDX.
+- Marketplace NFT separado e upgradeable: escrow, preço positivo definido pelo vendedor, pagamento em CDX, taxa de 0,9% para o fee collector e cancelamento disponível ao vendedor durante pausa. A taxa é arredondada para baixo em unidades mínimas de CDX. Coleções com administradores que podem queimar ou reassociar NFTs podem invalidar um escrow; qualquer pessoa pode limpar o registro obsoleto, mas o marketplace não pode recuperar um NFT queimado ou transferido pelo contrato da coleção.
 - `GameToken` mantém apenas níveis de jogadores. Missões, badges, rankings, cashback e recompensas de jogo não estão implementados.
-- `purchaseItem` permanece experimental: os tokens recebidos ficam no contrato e não há fluxo de liquidação/retirada. Não use essa função até que esse fluxo seja implementado.
+- A compra de itens está desabilitada até existir entrega do item e liquidação/reembolso verificáveis; `purchaseItem` reverte sem transferir tokens.
 
 O owner controla mint, taxa, pausa e upgrades. Em produção, o owner deve ser uma multisig. A pausa não congela transfers ERC-20.
 

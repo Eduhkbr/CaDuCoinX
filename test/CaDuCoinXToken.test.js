@@ -100,6 +100,7 @@ describe("CaDuCoinXToken", function () {
         await token.depositEth({ value: ethers.parseEther("2") });
         await token.allocateBuybackBudget(ethers.parseEther("2"));
         await token.setBuybackActive(true);
+        await expect(token.deallocateBuybackBudget(1)).to.be.revertedWith("Disable buybacks first");
         const expected = ethers.parseEther("0.98");
         await expect(token.connect(alice).sellTokens(amount, expected + 1n)).to.be.revertedWith("Below minimum ETH output");
         expect(await token.balanceOf(await alice.getAddress())).to.equal(amount);
@@ -118,6 +119,18 @@ describe("CaDuCoinXToken", function () {
         await expect(token.setBuybackActive(true)).to.be.revertedWith("Insufficient history");
         await pool.setOracle(0, 99, 1800);
         await expect(token.setBuybackActive(true)).to.be.revertedWith("Insufficient TWAP liquidity");
+        await pool.setOracle(0, 1_000, 1800);
+        await pool.setCurrentLiquidity(0);
+        await expect(token.setBuybackActive(true)).to.be.revertedWith("Insufficient current liquidity");
+        await pool.setCurrentLiquidity(1_000);
+        await token.setBuybackActive(true);
+        const amount = ethers.parseUnits("1", 18);
+        await token.mint(await alice.getAddress(), amount);
+        await token.depositEth({ value: ethers.parseEther("1") });
+        await token.allocateBuybackBudget(ethers.parseEther("1"));
+        await pool.setCurrentLiquidity(0);
+        await expect(token.connect(alice).sellTokens(amount, 0)).to.be.revertedWith("Insufficient current liquidity");
+        expect(await token.balanceOf(await alice.getAddress())).to.equal(amount);
     });
 
     it("rejects a pool that does not represent the configured CDX/WETH pair", async function () {
@@ -132,11 +145,23 @@ describe("CaDuCoinXToken", function () {
         await configurePool(fixture);
         await expect(token.allocateBuybackBudget(1)).to.be.revertedWith("Insufficient unallocated ETH");
         await token.depositEth({ value: 1000 });
-        await token.allocateBuybackBudget(600);
-        expect(await token.unallocatedEth()).to.equal(400);
-        await expect(token.withdrawUnallocatedEth(401)).to.be.revertedWith("Cannot withdraw allocated ETH");
-        await token.withdrawUnallocatedEth(400);
+        await token.allocateBuybackBudget(1000);
         expect(await token.unallocatedEth()).to.equal(0);
+        await expect(token.withdrawUnallocatedEth(1)).to.be.revertedWith("Cannot withdraw allocated ETH");
+        await expect(token.deallocateBuybackBudget(1001)).to.be.revertedWith("Amount exceeds buyback budget");
+        await token.deallocateBuybackBudget(1000);
+        expect(await token.buybackBudget()).to.equal(0);
+        await token.withdrawUnallocatedEth(1000);
+        expect(await token.unallocatedEth()).to.equal(0);
+    });
+
+    it("does not accept item purchases before item delivery and settlement exist", async function () {
+        const amount = ethers.parseUnits("10", 18);
+        await token.mint(await alice.getAddress(), amount);
+        await token.addItem("Sword", ethers.parseUnits("5", 18));
+        await expect(token.connect(alice).purchaseItem(0)).to.be.revertedWith("Item delivery not implemented");
+        expect(await token.balanceOf(await alice.getAddress())).to.equal(amount);
+        expect(await token.balanceOf(await token.getAddress())).to.equal(0);
     });
 
     it("does not tie primary sale price to TWAP buyback quote", async function () {
