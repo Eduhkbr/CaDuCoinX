@@ -1,13 +1,13 @@
 # CaDuCoinX — diagnóstico e roadmap
 
-**Estado atual:** 33 testes Hardhat passam após integrar recompra limitada por TWAP, marketplace NFT e mitigação dos achados desta revisão. `npm audit --audit-level=high` não reporta advisories altos/críticos; 43 avisos baixos/moderados permanecem (13 baixos, 30 moderados). Consulte a seção 13 para o estado corrente.
+**Estado atual:** 33 testes Hardhat passam com Solidity 0.8.38 e OpenZeppelin 5.6.1. `npm audit --audit-level=high` não reporta advisories altos/críticos; 43 avisos baixos/moderados permanecem (13 baixos, 30 moderados). Consulte a seção 14 para o estado corrente.
 **Regra de release:** nenhum deploy de produção está autorizado por este documento.
 
-**Nota de leitura:** as seções 1–10 registram o diagnóstico e o plano anteriores às correções; a seção 13 é a fonte para o estado e backlog atuais. As seções 11–12 também são registros históricos dos ciclos anteriores.
+**Nota de leitura:** as seções 1–10 registram o diagnóstico e o plano anteriores às correções; a seção 14 é a fonte para o estado e backlog atuais. As seções 11–13 também são registros históricos dos ciclos anteriores.
 
 ## 1. Resumo executivo
 
-O projeto contém CDX ERC-20 upgradeable com cap de 1 bilhão, venda primária em ETH, recompra opcional a partir de orçamento multisig e cotação TWAP, staking com APR fixada e rewards reservados, níveis `GameToken` e marketplace NFT UUPS separado com fee de 0,9%. Mint e staking não exigem colateral ETH; `purchaseItem` está desabilitado até implementar entrega/liquidação. `npm ci`, compilação limpa de 60 fontes e 33 testes passam. A auditoria npm não mostra advisories altos/críticos, mas mantém 43 avisos transitivos baixos/moderados.
+O projeto contém CDX ERC-20 upgradeable com cap de 1 bilhão, venda primária em ETH, recompra opcional a partir de orçamento multisig e cotação TWAP, staking com APR fixada e rewards reservados, níveis `GameToken` e marketplace NFT UUPS separado com fee de 0,9%. Mint e staking não exigem colateral ETH; `purchaseItem` está desabilitado até implementar entrega/liquidação. `npm ci`, compilação limpa de 63 fontes e 33 testes passam. A auditoria npm não mostra advisories altos/críticos, mas mantém 43 avisos transitivos baixos/moderados.
 
 O projeto não está pronto para deploy de ativos reais: recompra depende de pool e parâmetros operacionais ainda não validados em testnet, `purchaseItem` está desabilitado até implementar settlement, e não houve auditoria formal ou implantação.
 
@@ -277,3 +277,27 @@ Esta seção registra a implementação posterior aos achados da seção 11. Os 
 - TWAP não valida valor fundamental nem garante que o contrato tenha orçamento suficiente. `minEthOut` protege o vendedor contra cotação abaixo de sua expectativa; não limita risco de preço futuro ou de governança.
 - Alterar pool ou limiar de liquidez requer recompra desativada. O owner pode desalocar budget apenas quando a recompra estiver desativada. Configuração/ativação/orçamento devem ficar sob multisig; manter recompra desativada até verificar contrato, pool, observações e fundos.
 - Testes mockados validam a integração ABI e falhas esperadas, mas não provam a existência de histórico, profundidade ou liquidez adequada em Optimism Sepolia. Coleções ERC-721 com admin capaz de alterar custódia permanecem um risco externo; limpar listing obsoleta não recupera o NFT.
+
+## 14. Atualização Solidity 0.8.38 e OpenZeppelin 5.6.1 — 2026-10-31
+
+### Mudanças e compatibilidade
+
+- Contratos próprios, mocks e pragmas Solidity 0.8 foram atualizados para `^0.8.38`; `solc 0.8.38` está travado no lockfile. O adaptador TWAP permanece em `0.7.6`, exigido pela faixa de pragma de `OracleLibrary`. Hardhat compila ambos separadamente.
+- EVM permanece Cancun para os contratos CDX. O compilador 0.8.38 corrige um defeito importante do otimizador Yul, em que reatribuições podiam deixar análises de armazenamento/memória desatualizadas e causar remoção/substituição incorreta de operações. O changelog também registra otimização de uma instrução no dispatcher Yul. Não foram adotadas novas features da linguagem nem o alvo Amsterdam.
+- OpenZeppelin Contracts e Contracts Upgradeable estão em 5.6.1. `Initializable` e `UUPSUpgradeable` usam imports do pacote base. O `ReentrancyGuardUpgradeable` foi removido da linha upgradeable; token e marketplace agora usam `ReentrancyGuardTransient`, que não adiciona storage persistente, mas requer EIP-1153 (`TLOAD`/`TSTORE`) ativo na rede de destino.
+- OpenZeppelin 5.6 exige dados de inicialização ao construir proxies ERC-1967. O fluxo existente usa `upgrades.deployProxy` com initializer, e os testes locais continuam cobrindo a inicialização atômica.
+- Hardhat 2.29.1 e upgrades plugin 3.9.1 foram mantidos para evitar uma migração de major. Hardhat compila Solidity 0.8.38 e executa a suíte, mas avisa que seu suporte de stack traces vai até 0.8.30; a qualidade desses traces pode ser limitada. O plugin 4.x exige Hardhat 3 e ficou fora deste ciclo.
+- No Remix, compilar contratos CDX, marketplace, GameToken e mocks em 0.8.38/Cancun; compilar `UniswapV3TwapOracle` separadamente em 0.7.6. Confirme EIP-1153 na rede antes de qualquer deploy.
+
+### Validação
+
+| Check | Estado | Evidência/limite |
+| --- | --- | --- |
+| Compilação limpa | Passou | 63 fontes compiladas; EVM Cancun para contratos do projeto e Istanbul para o adaptador 0.7.6. |
+| Testes Hardhat | Passou | 33 testes, incluindo proxy deploy/upgrade, staking, pausabilidade, reentrância e TWAP. |
+| Hardhat traces | Limitação conhecida | Hardhat 2.29.1 emite aviso de suporte parcial de stack traces para Solidity 0.8.38; compile e testes passam. |
+| `npm ci` e auditoria npm | Passou | Node 24 instalou as dependências travadas; 43 advisories permanecem (13 baixos, 30 moderados), zero altos/críticos. |
+| Remix | Não executado | O procedimento com compiladores 0.8.38 e 0.7.6 está documentado; a execução no editor permanece pendente. |
+| Deploy | Não executado | Confirmar EIP-1153 e EVM Cancun na rede escolhida antes de publicar; Hardhat simula Cancun, não comprova suporte do RPC remoto. |
+
+**Referências oficiais:** [Solidity 0.8.38 changelog](https://github.com/ethereum/solidity/blob/develop/Changelog.md#038-2026-10-22), [OpenZeppelin Contracts changelog](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.6.1/CHANGELOG.md) e [Hardhat Solidity support](https://v2.hardhat.org/hardhat-runner/docs/reference/solidity-support).

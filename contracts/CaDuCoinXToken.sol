@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.38;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./GameToken.sol";
@@ -16,7 +16,7 @@ interface IUniswapV3TwapOracle {
         external view returns (uint256 quoteAmount, uint128 harmonicMeanLiquidity, uint128 currentLiquidity);
 }
 
-contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable, PausableUpgradeable {
+contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardTransient, UUPSUpgradeable, PausableUpgradeable {
     uint256 public constant DECIMALS = 18;
     uint256 public constant MAX_SUPPLY = 1_000_000_000 * (10 ** DECIMALS);
     uint256 public constant INITIAL_SALE_PRICE = 3_300_000_000_000;
@@ -99,8 +99,6 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
     ) public initializer {
         __ERC20_init(name, symbol);
         __Ownable_init(_owner);
-        __ReentrancyGuard_init();
-        __UUPSUpgradeable_init();
         __Pausable_init();
 
         require(_gameToken != address(0) && _gameToken.code.length > 0, "Invalid GameToken");

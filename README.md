@@ -25,7 +25,7 @@ O owner controla mint, taxa, pausa e upgrades. Em produção, o owner deve ser u
 
 ## Desenvolvimento
 
-Requer Node.js 24 e npm. O compilador Solidity 0.8.28 vem do lockfile npm para evitar download não verificado durante a compilação.
+Requer Node.js 24 e npm. Solidity 0.8.38 e OpenZeppelin 5.6.1 estão travados no lockfile. O adaptador `UniswapV3TwapOracle` permanece em Solidity 0.7.6 por causa da faixa de pragma da `OracleLibrary` oficial da Uniswap V3; o Hardhat compila as duas versões separadamente, com EVM Cancun para os contratos CDX.
 
 ```bash
 npm ci
@@ -34,6 +34,8 @@ npm test
 ```
 
 `./run_hardhat.sh` executa compilação e testes. Os testes usam a rede local do Hardhat e não precisam de chave ou RPC.
+
+No Remix, use o compilador 0.8.38 com alvo EVM Cancun para CDX, marketplace, GameToken e mocks. Compile `UniswapV3TwapOracle.sol` separadamente com Solidity 0.7.6. CDX e marketplace usam a guarda transitória de OpenZeppelin, que requer suporte a EIP-1153 (`TLOAD`/`TSTORE`); confirme esse suporte para a rede escolhida antes de qualquer deploy. Compilação e testes locais não enviam transações.
 
 ## Deploy de testnet
 
@@ -59,6 +61,6 @@ Para deploy manual, execute `npm run deploy:testnet`. O script implanta o `GameT
 
 ## Upgradeability e segurança
 
-O CDX usa proxy UUPS validado pelo plugin OpenZeppelin; a implementação bloqueia inicialização direta. Alterações de storage exigem revisão e testes de upgrade antes de qualquer contrato ser publicado.
+O CDX usa proxy UUPS validado pelo plugin OpenZeppelin; a implementação bloqueia inicialização direta. `Initializable` e `UUPSUpgradeable` usam os imports base de OpenZeppelin 5.6.1. `ReentrancyGuardTransient` não adiciona storage persistente e exige EIP-1153. Alterações de storage exigem revisão e testes de upgrade antes de qualquer contrato ser publicado.
 
 Este repositório não é uma auditoria de segurança. Não use fundos reais nem trate APR, marketplace ou governança como auditados. Consulte [ROADMAP.md](ROADMAP.md) para riscos conhecidos, validações e backlog.
