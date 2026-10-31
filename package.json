@@ -7,23 +7,29 @@
     "test": "tests"
   },
   "devDependencies": {
-    "@nomiclabs/hardhat-waffle": "^2.0.6",
-    "@openzeppelin/hardhat-upgrades": "^1.28.0",
-    "chai": "4.5.0",
-    "hardhat": "^2.22.17",
-    "mocha": "11.0.1"
+    "@nomicfoundation/hardhat-toolbox": "6.1.2",
+    "@openzeppelin/hardhat-upgrades": "3.9.1",
+    "hardhat": "2.29.1"
   },
   "dependencies": {
-    "@ensdomains/ens-contracts": "1.2.2",
-    "@nomicfoundation/hardhat-verify": "^2.0.12",
-    "@openzeppelin/contracts": "^5.1.0",
-    "@openzeppelin/contracts-upgradeable": "^5.1.0",
+    "@openzeppelin/contracts": "5.4.0",
+    "@openzeppelin/contracts-upgradeable": "5.4.0",
     "dotenv": "^16.3.1",
-    "ethers": "^5.7.2",
-    "solc": "^0.8.28"
+    "ethers": "6.17.0",
+    "solc": "0.8.28"
+  },
+  "overrides": {
+    "@fastify/busboy": "3.2.4",
+    "adm-zip": "0.6.1",
+    "lodash": "4.18.1",
+    "serialize-javascript": "7.1.4",
+    "tmp": "0.2.7",
+    "undici": "6.29.1"
   },
   "scripts": {
-    "test": "mocha"
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:testnet": "hardhat run scripts/deploy.js --network optimismSepolia"
   },
   "keywords": [],
   "author": "",

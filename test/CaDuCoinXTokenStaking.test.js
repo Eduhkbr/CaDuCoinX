@@ -1,87 +1,100 @@
-// SPDX-License-Identifier: MIT
-
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, network } = require("hardhat");
+const { deployFixture } = require("./helpers/deploy");
 
-describe("CaDuCoinXToken - Staking", function () {
-    let owner, addr1, addr2, deployer, token, proxy;
+describe("CaDuCoinXToken staking", function () {
+    let owner, alice, token;
+    const year = 365 * 24 * 60 * 60;
 
     beforeEach(async function () {
-        // Obter contas
-        [owner, addr1, addr2, deployer] = await ethers.getSigners();
-        
-        // Deploy do contrato gamificado
-        const TokenGamificado = await ethers.getContractFactory("GameToken");
-        tokenGame = await TokenGamificado.deploy();
-        await tokenGame.deployed();
-
-        // Deploy do contrato lógico
-        const TokenFactory = await ethers.getContractFactory("CaDuCoinXToken");
-        token = await TokenFactory.deploy();
-        await token.deployed();
-
-        // Inicializar dados para o proxy
-        const initializeData = token.interface.encodeFunctionData("initialize", [
-            owner.address,
-            "CaDuCoinX",
-            "CDX",
-            tokenGame.address
-        ]);
-
-        // Deploy do proxy
-        const ProxyFactory = await ethers.getContractFactory("CaDuCoinXTokenProxy");
-        proxy = await ProxyFactory.deploy(token.address, initializeData);
-        await proxy.deployed();
-
-        // Conectar o contrato lógico ao proxy
-        token = TokenFactory.attach(proxy.address);
-
-        // Cunhar tokens para testes
-        const mintAmount = ethers.utils.parseUnits("10000", 18);
-        await token.mint(addr1.address, mintAmount);
-        await token.mint(addr2.address, mintAmount);
+        ({ owner, alice, token } = await deployFixture());
     });
 
-    it("Deve permitir que um usuário realize um stake", async function () {
-        const stakeAmount = ethers.utils.parseUnits("1000", 18);
-        const duration = 90 * 24 * 60 * 60; // 3 meses
+    async function fundAndStake(amount, duration) {
+        await token.mint(await alice.getAddress(), amount);
+        await token.connect(alice).stake(amount, duration);
+    }
 
-        // Aprovar o contrato para transferir tokens
-        await token.connect(addr1).approve(token.address, stakeAmount);
+    async function mature(duration) {
+        await network.provider.send("evm_increaseTime", [duration + 1]);
+        await network.provider.send("evm_mine");
+    }
 
-        // Realizar o stake
-        await token.connect(addr1).stake(stakeAmount, duration);
+    it("calculates and reserves the 6% APR reward proportionally for all durations", async function () {
+        const amount = ethers.parseUnits("1000", 18);
+        const durations = [90 * 86400, 180 * 86400, 270 * 86400, year];
+        let expectedTotal = 0n;
 
-        // Verificar o saldo do contrato
-        expect(await token.balanceOf(token.address)).to.equal(stakeAmount);
+        for (const duration of durations) {
+            await token.mint(await alice.getAddress(), amount);
+            await token.connect(alice).stake(amount, duration);
+            expectedTotal += amount * 600n * BigInt(duration) / (10_000n * BigInt(year));
+        }
 
-        // Verificar o saldo do usuário
-        expect(await token.balanceOf(addr1.address)).to.equal(
-            ethers.utils.parseUnits("9000", 18)
+        expect(await token.reservedRewards()).to.equal(expectedTotal);
+        const stakes = await token.getUserStakes(await alice.getAddress());
+        expect(stakes.map((stake) => stake.rewardAmount)).to.deep.equal(
+            durations.map((duration) => amount * 600n * BigInt(duration) / (10_000n * BigInt(year)))
         );
     });
-    
-    it("Deve permitir que um usuário consulte seus stakes", async function () {
-        const stakeAmount1 = ethers.utils.parseUnits("1000", 18);
-        const stakeAmount2 = ethers.utils.parseUnits("500", 18);
-        const duration1 = 90 * 24 * 60 * 60; // 3 meses
-        const duration2 = 180 * 24 * 60 * 60; // 6 meses
 
-        // Aprovar e realizar dois stakes
-        await token.connect(addr1).approve(token.address, stakeAmount1);
-        await token.connect(addr1).stake(stakeAmount1, duration1);
+    it("fixes the reward rate at stake time and pays a non-owner while paused", async function () {
+        const amount = ethers.parseUnits("1000", 18);
+        const duration = 90 * 86400;
+        await fundAndStake(amount, duration);
+        const expectedReward = amount * 600n * BigInt(duration) / (10_000n * BigInt(year));
 
-        await token.connect(addr1).approve(token.address, stakeAmount2);
-        await token.connect(addr1).stake(stakeAmount2, duration2);
+        await token.updateInterestRate(1000);
+        await token.pause();
+        await mature(duration);
+        await token.connect(alice).unstake(0);
 
-        // Consultar stakes do usuário
-        const userStakes = await token.getUserStakes(addr1.address);
+        expect(await token.balanceOf(await alice.getAddress())).to.equal(amount + expectedReward);
+        expect(await token.reservedRewards()).to.equal(0);
+        expect(await token.totalSupply()).to.equal(amount + expectedReward);
+    });
 
-        // Verificar os detalhes dos stakes
-        expect(userStakes.length).to.equal(2);
-        expect(userStakes[0].amount).to.equal(stakeAmount1);
-        expect(userStakes[0].duration).to.equal(duration1);
-        expect(userStakes[1].amount).to.equal(stakeAmount2);
-        expect(userStakes[1].duration).to.equal(duration2);
+    it("does not let owner mints consume rewards reserved for existing stakes", async function () {
+        const amount = ethers.parseUnits("1000", 18);
+        await fundAndStake(amount, year);
+        const maxSupply = await token.MAX_SUPPLY();
+        const reserved = await token.reservedRewards();
+        const supply = await token.totalSupply();
+        const remaining = maxSupply - supply - reserved;
+
+        await token.mint(await owner.getAddress(), remaining);
+        await expect(token.mint(await owner.getAddress(), 1))
+            .to.be.revertedWith("Exceeds available supply");
+
+        await mature(year);
+        await token.connect(alice).unstake(0);
+        expect(await token.totalSupply()).to.equal(maxSupply);
+        expect(await token.balanceOf(await alice.getAddress())).to.equal(amount + reserved);
+    });
+
+    it("rejects new stakes when the cap cannot reserve their rewards", async function () {
+        const amount = ethers.parseUnits("1000", 18);
+        await token.mint(await alice.getAddress(), amount);
+        const maxSupply = await token.MAX_SUPPLY();
+        const supply = await token.totalSupply();
+        await token.mint(await owner.getAddress(), maxSupply - supply);
+
+        await expect(token.connect(alice).stake(amount, year))
+            .to.be.revertedWith("Insufficient reward capacity");
+        expect(await token.balanceOf(await alice.getAddress())).to.equal(amount);
+        expect(await token.reservedRewards()).to.equal(0);
+    });
+
+    it("rejects invalid stakes and prevents withdrawal before maturity", async function () {
+        const amount = ethers.parseUnits("100", 18);
+        await token.mint(await alice.getAddress(), amount);
+
+        await expect(token.connect(alice).stake(0, year)).to.be.revertedWith("Cannot stake 0");
+        await expect(token.connect(alice).stake(amount, 1)).to.be.revertedWith("Invalid staking duration");
+
+        const duration = 90 * 86400;
+        await token.connect(alice).stake(amount, duration);
+        await expect(token.connect(alice).unstake(0)).to.be.revertedWith("Staking period not completed");
+        await expect(token.connect(alice).unstake(1)).to.be.revertedWith("Invalid stake index");
     });
 });

@@ -1,186 +1,56 @@
-# CaDuCoinX (CDX) - Token para Microtransações e Staking
+# CaDuCoinX (CDX)
 
-[![GitHub license](https://img.shields.io/github/license/Eduhkbr/CaDuCoinX)](https://github.com/Eduhkbr/CaDuCoinX/blob/main/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/Eduhkbr/CaDuCoinX)](https://github.com/Eduhkbr/CaDuCoinX/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/Eduhkbr/CaDuCoinX)](https://github.com/Eduhkbr/CaDuCoinX/network/members)
+CaDuCoinX é um protótipo de token ERC-20 com staking e um marketplace de NFTs em CDX. O alvo de produção pretendido é Optimism; o único alvo de deploy automatizado neste repositório é **Optimism Sepolia**. O projeto ainda não tem auditoria formal nem deploy de produção verificado.
 
-🚀 O **CaDuCoinX (CDX)** é um token ERC-20 projetado para revolucionar a economia de microtransações e oferecer uma nova forma de gerar rendimento através de staking. Construído na rede **Optimism**, uma Layer 2 de Ethereum, o CDX combina **baixos custos de transação**, **alta velocidade** e **sustentabilidade financeira** para criar uma experiência única no mercado de criptomoedas.
+## Estado implementado
 
----
+- ERC-20 com supply máximo de 21 milhões de CDX, mint administrativo sujeito ao cap e burn voluntário do próprio holder.
+- Staking por 90, 180, 270 ou 365 dias. A APR é expressa em basis points (`600 = 6%`, faixa configurável de 4,2% a 10%) e fica fixada no início do stake. O contrato reserva o reward no cap; se não houver capacidade suficiente, um novo stake é recusado. O principal e o reward reservado continuam sacáveis depois da maturidade, inclusive durante pausa.
+- Pausa administrativa bloqueia mint, novos stakes, listagens e compras. Transfers ERC-20, cancelamento de listagens e saques maduros continuam disponíveis.
+- Escrow de NFTs: o vendedor deposita o NFT e define um preço positivo em CDX. A compra paga o vendedor pelo preço registrado; o vendedor pode cancelar e recuperar o NFT.
+- `GameToken` mantém apenas níveis de jogadores. Missões, badges, rankings, cashback e recompensas de jogo não estão implementados.
+- `purchaseItem` permanece experimental: os tokens recebidos ficam no contrato e não há fluxo de liquidação/retirada. Não use essa função até que esse fluxo seja implementado.
 
-## 📌 Sumário
+O owner controla mint, taxa, pausa e upgrades. Em produção, o owner deve ser uma multisig. A pausa não congela transfers ERC-20.
 
-1. [Características Principais](#-características-principais)
-2. [Funcionalidades do Token](#-funcionalidades-do-token)
-3. [Gamificação](#-gamificação)
-4. [Como Utilizar o CaDuCoinX](#-como-utilizar-o-caducoinx)
-5. [Deploy dos Contratos](#-deploy-dos-contratos)
-6. [Detalhes e Estrutura dos Contratos](#-detalhes-e-estrutura-dos-contratos)
-7. [CI/CD](#-cicd)
-8. [Roadmap](#-roadmap)
-9. [Contribuindo](#-contribuindo)
-10. [Licença](#-licença)
-11. [Agradecimentos](#-agradecimentos)
-12. [Contato](#-contato)
+## Redes
 
----
+| Rede | Chain ID | Uso neste projeto |
+| --- | ---: | --- |
+| Optimism Sepolia | 11155420 | Testnet configurada para deploy manual |
+| Optimism mainnet | 10 | Alvo pretendido; deploy não configurado nem autorizado por este repositório |
+| Ethereum Sepolia | 11155111 | Não é o alvo configurado |
 
-## 🚀 Características Principais
+## Desenvolvimento
 
-- **Microtransações Baratas e Rápidas**: Com taxas de gás reduzidas na rede Optimism, o CDX é ideal para transações frequentes e pequenas.
-- **Staking com Rendimentos Atrativos**: Stake seu CDX por 3, 6, 9 ou 12 meses e ganhe recompensas de 4% a 10% ao ano.
-- **Integração em Jogos e Aplicativos**: Projeto gamificado para ser utilizado em jogos e plataformas de entretenimento.
-- **Governança e Segurança**: Contrato inteligente auditável e totalmente transparente.
-
----
-
-## ⚡ Funcionalidades do Token
-
-- **Token ERC-20 Upgradável**: Utiliza OpenZeppelin para permitir atualizações via proxy.
-- **Staking com Recompensas**: Usuários podem bloquear tokens por períodos pré-determinados para receber recompensas.
-- **Taxa de Juros Dinâmica**: O proprietário pode ajustar a taxa de juros anual entre 4% e 10%.
-- **Pausabilidade**: O contrato pode ser pausado para evitar operações indesejadas.
-- **Mecanismo de Burn e Mint**: Tokens podem ser criados ou queimados pelo proprietário.
-- **Deploy Automatizado**: Suporte para Hardhat, Sepolia e integração com GitHub Actions.
-- **Gamificação**: Sistema de conquistas e recompensas baseado no engajamento dos usuários com staking e transações.
-
----
-
-## 🎮 Gamificação
-
-O CaDuCoinXToken implementa um sistema de gamificação para incentivar a participação ativa dos usuários. As principais mecânicas incluem:
-
-- **Níveis de Staking**: Usuários acumulam experiência ao manter tokens bloqueados, subindo de nível para desbloquear melhores taxas de recompensa.
-- **Missões e Desafios**: Completar ações como staking contínuo por X dias ou realizar Y transações pode render tokens de bônus.
-- **Badges e Conquistas**: Usuários ganham distintivos por marcos atingidos, como primeiro staking, primeiro milhão de tokens movimentado, entre outros.
-- **Ranking de Usuários**: Um leaderboard exibe os usuários mais ativos e engajados na plataforma.
-- **Sistema de Cashback**: Parte das taxas geradas pode ser redistribuída como cashback para os usuários mais engajados.
-
-
----
-
-## 📖 Como Utilizar o CaDuCoinX
-
-### 1️⃣ Instalação
-
-Para começar a contribuir ou utilizar o projeto, siga os passos abaixo:
+Requer Node.js 24 e npm. O compilador Solidity 0.8.28 vem do lockfile npm para evitar download não verificado durante a compilação.
 
 ```bash
-git clone https://github.com/Eduhkbr/CaDuCoinX.git
-cd CaDuCoinX
-npm install
+npm ci
+npm run compile
+npm test
 ```
 
-### 2️⃣ Configuração
+`./run_hardhat.sh` executa compilação e testes. Os testes usam a rede local do Hardhat e não precisam de chave ou RPC.
 
-Crie um arquivo `.env` com as seguintes variáveis:
+## Deploy de testnet
+
+Configure os valores no ambiente protegido `optimism-sepolia` do GitHub Actions ou no ambiente local:
 
 ```env
-PRIVATE_KEY=your_private_key
-INFURA_SEPOLIA_URL=your_infura_url
-DEPLOYER_ADDRESS=your_deployer_address
-TAX_ADDRESS=your_tax_address
-NAME_TOKEN="CaDuCoinX"
-SYMBOL="CDX"
+PRIVATE_KEY=chave_da_conta_de_deploy
+OPTIMISM_SEPOLIA_RPC_URL=https://rpc-da-optimism-sepolia
+CDX_ADMIN_ADDRESS=0x...
+NAME_TOKEN=CaDuCoinX
+SYMBOL=CDX
 ```
 
+`CDX_ADMIN_ADDRESS` recebe o controle administrativo do proxy. Não registre valores secretos no repositório. O script verifica o chain ID antes de enviar transações e transfere o ownership do GameToken ao proxy CDX.
 
----
+Para deploy manual, execute `npm run deploy:testnet`. O workflow também compila, executa testes e verifica advisories altos/críticos antes de deploy. O job exige `workflow_dispatch`, execução na branch `main`, confirmação explícita e aprovação do ambiente protegido. Não existe job de deploy automático em push ou PR.
 
-## 🛠️ Deploy dos Contratos
+## Upgradeability e segurança
 
-- **Para implantar os contratos na rede Sepolia, execute:**: 
-```
-npx hardhat run scripts/deploy.js --network sepolia
-```
+O CDX usa proxy UUPS validado pelo plugin OpenZeppelin; a implementação bloqueia inicialização direta. Alterações de storage exigem revisão e testes de upgrade antes de qualquer contrato ser publicado.
 
----
-
-## 📜 Detalhes do Contrato
-
-- **Contract Address**: `0x...`
-- **Rede**: Optimism (Chain ID: 69)
-- **Etherscan**: [Verificar no Etherscan](#)
-
----
-
-## 📜 Estrutura dos Contratos
-
-- **Baseado no ERC-20 da OpenZeppelin com funcionalidades adicionais de staking e burn/mint.**
-- **Utiliza padrões de contrato upgradável da OpenZeppelin**
-- **Implementa o padrão de proxy UUPS para permitir upgrades futuros**
-
----
-
-
-## 🔄 CI/CD
-
-- O repositório inclui um fluxo de GitHub Actions (`.github/workflows/main.yml`) para deploy automatizado na rede Sepolia.
-
----
-
-## 🛣️ Roadmap
-
-### **Q1: Lançamento do Token**
-- Lançamento do contrato inteligente na rede Optimism.
-- Listagem em pequenas exchanges e DEXs.
-
-### **Q2: Integração em Jogos**
-- Parcerias com estúdios de jogos independentes.
-- Lançamento de um jogo piloto utilizando o CDX.
-
-### **Q3: Expansão do Ecossistema**
-- Integração com plataformas de streaming e entretenimento.
-- Desenvolvimento de uma wallet oficial do projeto.
-
-### **Q4: Escalabilidade e Novos Mercados**
-- Expansão para outras redes (ex: Polygon, Solana).
-- Entrada em mercados emergentes e tradicionais.
-
----
-
-## 🤝 Contribuindo
-
-1. Fork o repositório.
-2. Crie uma branch para suas alterações:
-
-   ```bash
-   git checkout -b feature/nova-funcionalidade
-   ```
-
-3. Commit suas alterações:
-
-   ```bash
-   git commit -m "Adicionada nova funcionalidade"
-   ```
-
-4. Push para a branch:
-
-   ```bash
-   git push origin feature/nova-funcionalidade
-   ```
-
-5. Abra um Pull Request.
-
----
-
-## 📜 Licença
-
-Este projeto está licenciado sob a **Licença MIT** - veja o arquivo [LICENSE](LICENSE) para mais detalhes.
-
----
-
-## 🎉 Agradecimentos
-
-Agradecemos à equipe do **OpenZeppelin** por seus contratos seguros e bem testados.
-
-A todos os **contribuidores** que ajudaram a tornar o **CaDuCoinX** uma realidade.
-
----
-
-## 📩 Contato
-
-📧 **Email**: contato@caducoinx.io  
-🐦 **Twitter**: [@CaDuCoinX](#)  
-💬 **Discord**: [Comunidade CaDuCoinX](#)  
-📢 **Telegram**: [Grupo CaDuCoinX](#)
+Este repositório não é uma auditoria de segurança. Não use fundos reais nem trate APR, marketplace ou governança como auditados. Consulte [ROADMAP.md](ROADMAP.md) para riscos conhecidos, validações e backlog.
