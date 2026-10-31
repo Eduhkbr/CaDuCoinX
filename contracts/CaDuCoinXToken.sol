@@ -7,14 +7,24 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./GameToken.sol";
 
-contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable, PausableUpgradeable, IERC721Receiver {
+interface IUniswapV3TwapOracle {
+    function isValidPool(address pool, address tokenA, address tokenB) external view returns (bool);
+    function quoteAtTwap(address pool, address baseToken, address quoteToken, uint128 baseAmount, uint32 secondsAgo)
+        external view returns (uint256 quoteAmount, uint128 harmonicMeanLiquidity);
+}
+
+contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable, PausableUpgradeable {
     uint256 public constant DECIMALS = 18;
-    uint256 public constant MAX_SUPPLY = 21000000 * (10 ** DECIMALS);
+    uint256 public constant MAX_SUPPLY = 1_000_000_000 * (10 ** DECIMALS);
+    uint256 public constant INITIAL_SALE_PRICE = 3_300_000_000_000;
+    uint256 public constant BUYBACK_PRICE_BPS = 9_800;
+    uint256 public constant BPS_DENOMINATOR = 10_000;
+    uint32 public constant BUYBACK_TWAP_WINDOW = 30 minutes;
+    uint256 public constant MIN_SALE_PRICE = 1e12;
+    uint256 public constant MAX_SALE_PRICE = 100 ether;
 
     GameToken public gameToken;
 
@@ -31,11 +41,6 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
         uint256 rewardAmount;
     }
 
-    struct NFTListing {
-        address seller;
-        uint256 price;
-    }
-
     mapping(address => Stake[]) private stakes;
     mapping(uint256 => Item) public items;
     uint256 public nextItemId;
@@ -47,11 +52,14 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
 
     // Reserved rewards count against MAX_SUPPLY and cannot be consumed by owner minting.
     uint256 public reservedRewards;
-    mapping(address => mapping(uint256 => NFTListing)) public nftListings;
-
-    address private _pendingNFTContract;
-    address private _pendingNFTSeller;
-    uint256 private _pendingNFTTokenId;
+    uint256 public salePrice;
+    bool public saleActive;
+    IUniswapV3TwapOracle public buybackOracle;
+    address public buybackPool;
+    address public buybackWeth;
+    uint128 public minimumTwapLiquidity;
+    uint256 public buybackBudget;
+    bool public buybackActive;
 
     uint256 public constant THREE_MONTHS = 90 days;
     uint256 public constant SIX_MONTHS = 180 days;
@@ -64,10 +72,16 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
     event Unstaked(address indexed user, uint256 amount);
     event RewardsClaimed(address indexed user, uint256 rewards);
     event ItemPurchased(address indexed buyer, uint256 itemId, uint256 price);
-    event NFTPurchased(address indexed buyer, address nftContract, uint256 tokenId, uint256 price);
-    event NFTListed(address indexed seller, address indexed nftContract, uint256 indexed tokenId, uint256 price);
-    event NFTListingCancelled(address indexed seller, address indexed nftContract, uint256 indexed tokenId);
     event InterestRateUpdated(uint256 newRate);
+    event SalePriceUpdated(uint256 salePrice);
+    event SaleStatusUpdated(bool active);
+    event TokensPurchased(address indexed buyer, uint256 tokenAmount, uint256 ethAmount);
+    event TokensSold(address indexed seller, uint256 tokenAmount, uint256 ethAmount);
+    event EthDeposited(address indexed depositor, uint256 amount);
+    event EthWithdrawn(address indexed recipient, uint256 amount);
+    event BuybackPoolConfigured(address indexed pool, address indexed weth, uint128 minimumHarmonicLiquidity);
+    event BuybackStatusUpdated(bool active);
+    event BuybackBudgetAllocated(address indexed allocator, uint256 amount, uint256 totalBudget);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -75,7 +89,13 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
     }
 
     /// @notice Inicializa o token e vincula o GameToken para funções de gamificação.
-    function initialize(address _owner, string memory name, string memory symbol, address _gameToken) public initializer {
+    function initialize(
+        address _owner,
+        string memory name,
+        string memory symbol,
+        address _gameToken,
+        address _buybackOracle
+    ) public initializer {
         __ERC20_init(name, symbol);
         __Ownable_init(_owner);
         __ReentrancyGuard_init();
@@ -83,8 +103,12 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
         __Pausable_init();
 
         require(_gameToken != address(0) && _gameToken.code.length > 0, "Invalid GameToken");
+        require(_buybackOracle != address(0) && _buybackOracle.code.length > 0, "Invalid buyback oracle");
         gameToken = GameToken(_gameToken);
+        buybackOracle = IUniswapV3TwapOracle(_buybackOracle);
         interestRate = 600;
+        salePrice = INITIAL_SALE_PRICE;
+        saleActive = true;
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
@@ -108,6 +132,126 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
         require(totalSupply() + reservedRewards + amount <= MAX_SUPPLY, "Exceeds available supply");
         _mint(to, amount);
         emit Minted(to, amount);
+    }
+
+    function updateSalePrice(uint256 newSalePrice) external onlyOwner {
+        require(newSalePrice >= MIN_SALE_PRICE && newSalePrice <= MAX_SALE_PRICE, "Sale price out of bounds");
+        salePrice = newSalePrice;
+        emit SalePriceUpdated(newSalePrice);
+    }
+
+    function setSaleActive(bool active) external onlyOwner {
+        saleActive = active;
+        emit SaleStatusUpdated(active);
+    }
+
+    function purchaseTokens() external payable nonReentrant whenNotPaused {
+        require(saleActive, "Token sale is not active");
+        require(msg.value > 0, "Must send ETH to purchase tokens");
+
+        uint256 amount = Math.mulDiv(msg.value, 10 ** DECIMALS, salePrice);
+        require(amount > 0, "ETH amount too small");
+        require(totalSupply() + reservedRewards + amount <= MAX_SUPPLY, "Exceeds available supply");
+
+        _mint(msg.sender, amount);
+        emit TokensPurchased(msg.sender, amount, msg.value);
+    }
+
+    function configureBuybackPool(address pool, address weth, uint128 minimumHarmonicLiquidity) external onlyOwner {
+        require(!buybackActive, "Disable buybacks first");
+        require(weth != address(0) && weth.code.length > 0, "Invalid WETH");
+        require(minimumHarmonicLiquidity > 0, "Minimum liquidity is zero");
+        require(buybackOracle.isValidPool(pool, address(this), weth), "Invalid Uniswap V3 pool");
+
+        buybackPool = pool;
+        buybackWeth = weth;
+        minimumTwapLiquidity = minimumHarmonicLiquidity;
+        emit BuybackPoolConfigured(pool, weth, minimumHarmonicLiquidity);
+    }
+
+    function setBuybackActive(bool active) external onlyOwner {
+        if (active) {
+            require(buybackPool != address(0), "Buyback pool not configured");
+            (uint256 quote, uint128 harmonicLiquidity) = _quoteBuyback(10 ** DECIMALS);
+            require(quote > 0, "Invalid TWAP quote");
+            require(harmonicLiquidity >= minimumTwapLiquidity, "Insufficient TWAP liquidity");
+        }
+        buybackActive = active;
+        emit BuybackStatusUpdated(active);
+    }
+
+    function allocateBuybackBudget(uint256 amount) external onlyOwner {
+        require(amount > 0, "Budget amount is zero");
+        uint256 balance = address(this).balance;
+        require(balance >= buybackBudget, "Buyback budget exceeds balance");
+        require(amount <= balance - buybackBudget, "Insufficient unallocated ETH");
+        buybackBudget += amount;
+        emit BuybackBudgetAllocated(msg.sender, amount, buybackBudget);
+    }
+
+    function sellTokens(uint256 amount, uint256 minEthOut) external nonReentrant whenNotPaused {
+        require(buybackActive, "Buybacks are inactive");
+        require(amount > 0, "Amount must be greater than zero");
+        require(amount <= type(uint128).max, "Amount exceeds TWAP range");
+        (uint256 ethAmount, uint128 harmonicLiquidity) = _quoteBuyback(amount);
+        require(harmonicLiquidity >= minimumTwapLiquidity, "Insufficient TWAP liquidity");
+        require(ethAmount > 0, "ETH amount too small");
+        require(ethAmount >= minEthOut, "Below minimum ETH output");
+        require(ethAmount <= buybackBudget, "Insufficient buyback budget");
+        require(address(this).balance >= ethAmount, "Insufficient ETH balance");
+
+        _burn(msg.sender, amount);
+        buybackBudget -= ethAmount;
+
+        (bool success, ) = payable(msg.sender).call{value: ethAmount}("");
+        require(success, "ETH transfer failed");
+        emit TokensSold(msg.sender, amount, ethAmount);
+    }
+
+    function _quoteBuyback(uint256 amount) private view returns (uint256 ethAmount, uint128 harmonicLiquidity) {
+        require(buybackPool != address(0), "Buyback pool not configured");
+        (uint256 twapQuote, uint128 meanLiquidity) = buybackOracle.quoteAtTwap(
+            buybackPool,
+            address(this),
+            buybackWeth,
+            uint128(amount),
+            BUYBACK_TWAP_WINDOW
+        );
+        ethAmount = Math.mulDiv(twapQuote, BUYBACK_PRICE_BPS, BPS_DENOMINATOR);
+        harmonicLiquidity = meanLiquidity;
+    }
+
+    function depositEth() external payable onlyOwner {
+        require(msg.value > 0, "Must send ETH");
+        emit EthDeposited(msg.sender, msg.value);
+    }
+
+    function withdrawUnallocatedEth(uint256 amount) external onlyOwner nonReentrant {
+        uint256 balance = address(this).balance;
+        require(amount > 0, "Amount is zero");
+        require(balance >= buybackBudget, "Buyback budget exceeds balance");
+        require(amount <= balance - buybackBudget, "Cannot withdraw allocated ETH");
+        address recipient = owner();
+
+        (bool success, ) = payable(recipient).call{value: amount}("");
+        require(success, "ETH withdrawal failed");
+        emit EthWithdrawn(recipient, amount);
+    }
+
+    function unallocatedEth() external view returns (uint256) {
+        uint256 balance = address(this).balance;
+        return balance > buybackBudget ? balance - buybackBudget : 0;
+    }
+
+    function calculateTokensForEth(uint256 ethAmount) external view returns (uint256) {
+        return Math.mulDiv(ethAmount, 10 ** DECIMALS, salePrice);
+    }
+
+    function calculateEthForTokens(uint256 tokenAmount) external view returns (uint256) {
+        require(tokenAmount <= type(uint128).max, "Amount exceeds TWAP range");
+        (uint256 quote, uint128 harmonicLiquidity) = _quoteBuyback(tokenAmount);
+        require(harmonicLiquidity >= minimumTwapLiquidity, "Insufficient TWAP liquidity");
+        return quote;
     }
 
     function burn(uint256 amount) public whenNotPaused {
@@ -139,64 +283,6 @@ contract CaDuCoinXToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, 
         // Transferência segura com verificação implícita pela função _transfer
         _transfer(msg.sender, address(this), item.price);
         emit ItemPurchased(msg.sender, itemId, item.price);
-    }
-
-    /// @notice Lista em escrow um NFT por um preço fixo em CDX.
-    function listNFT(address nftContract, uint256 tokenId, uint256 price) external nonReentrant whenNotPaused {
-        require(nftContract.code.length > 0, "Invalid NFT contract");
-        require(price > 0, "Price must be positive");
-        require(nftListings[nftContract][tokenId].seller == address(0), "NFT already listed");
-        require(IERC721(nftContract).ownerOf(tokenId) == msg.sender, "Not NFT owner");
-
-        _pendingNFTContract = nftContract;
-        _pendingNFTSeller = msg.sender;
-        _pendingNFTTokenId = tokenId;
-        IERC721(nftContract).safeTransferFrom(msg.sender, address(this), tokenId);
-        delete _pendingNFTContract;
-        delete _pendingNFTSeller;
-        delete _pendingNFTTokenId;
-
-        require(IERC721(nftContract).ownerOf(tokenId) == address(this), "NFT escrow failed");
-        nftListings[nftContract][tokenId] = NFTListing({seller: msg.sender, price: price});
-        emit NFTListed(msg.sender, nftContract, tokenId, price);
-    }
-
-    /// @notice Compra uma listagem pelo preço definido pelo vendedor.
-    function buyNFT(address nftContract, uint256 tokenId) external nonReentrant whenNotPaused {
-        NFTListing memory listing = nftListings[nftContract][tokenId];
-        require(listing.seller != address(0) && listing.price > 0, "NFT not listed");
-        require(IERC721(nftContract).ownerOf(tokenId) == address(this), "NFT not in escrow");
-
-        delete nftListings[nftContract][tokenId];
-        _transfer(msg.sender, listing.seller, listing.price);
-        IERC721(nftContract).safeTransferFrom(address(this), msg.sender, tokenId);
-        require(IERC721(nftContract).ownerOf(tokenId) == msg.sender, "NFT transfer failed");
-        emit NFTPurchased(msg.sender, nftContract, tokenId, listing.price);
-    }
-
-    /// @notice Cancela a listagem e devolve o NFT ao vendedor, inclusive durante pausa.
-    function cancelNFTListing(address nftContract, uint256 tokenId) external nonReentrant {
-        NFTListing memory listing = nftListings[nftContract][tokenId];
-        require(listing.seller == msg.sender, "Not NFT seller");
-        delete nftListings[nftContract][tokenId];
-        IERC721(nftContract).safeTransferFrom(address(this), msg.sender, tokenId);
-        emit NFTListingCancelled(msg.sender, nftContract, tokenId);
-    }
-
-    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)
-        external
-        view
-        override
-        returns (bytes4)
-    {
-        require(
-            msg.sender == _pendingNFTContract &&
-            operator == address(this) &&
-            from == _pendingNFTSeller &&
-            tokenId == _pendingNFTTokenId,
-            "Unsolicited NFT"
-        );
-        return IERC721Receiver.onERC721Received.selector;
     }
 
     /// @notice Realiza o stake de tokens por um período específico.
