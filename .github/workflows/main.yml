@@ -74,6 +74,8 @@ jobs:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           OPTIMISM_SEPOLIA_RPC_URL: ${{ secrets.OPTIMISM_SEPOLIA_RPC_URL }}
           CDX_ADMIN_ADDRESS: ${{ vars.CDX_ADMIN_ADDRESS }}
+          CDX_FEE_COLLECTOR_ADDRESS: ${{ vars.CDX_FEE_COLLECTOR_ADDRESS }}
           NAME_TOKEN: ${{ vars.NAME_TOKEN }}
           SYMBOL: ${{ vars.SYMBOL }}
+          UNISWAP_V3_FACTORY_ADDRESS: ${{ vars.UNISWAP_V3_FACTORY_ADDRESS }}
         run: npm run deploy:testnet

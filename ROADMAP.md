@@ -1,17 +1,19 @@
 # CaDuCoinX — diagnóstico e roadmap
 
-**Estado atual (ciclo de correções):** dependências instaladas do lockfile, compilação e 19 testes validados; auditoria de dependências sem advisories altos/críticos, com avisos moderados/baixos ainda abertos. Consulte a seção 12 para o status que substitui as avaliações anteriores.
+**Estado atual:** 27 testes Hardhat passam após integrar venda/recompra de CDX e marketplace NFT separado. A auditoria atual não reporta advisories altos/críticos; 40 avisos moderados/baixos permanecem. Consulte a seção 13 para as mudanças deste ciclo.
 **Regra de release:** nenhum deploy de produção está autorizado por este documento.
+
+**Nota de leitura:** as seções 1–10 registram o diagnóstico e o plano anteriores às correções; a seção 13 é a fonte para o estado e backlog atuais. As seções 11–12 também são registros históricos dos ciclos anteriores.
 
 ## 1. Resumo executivo
 
-O repositório contém uma implementação inicial de token ERC-20 upgradeável, staking com recompensas, níveis de jogo e compras de itens/NFTs. Há código e alguns testes unitários, mas não há evidência de execução bem-sucedida neste ambiente. O roadmap do README descreve metas por trimestre sem entregas verificáveis ou critérios de aceite.
+O checkout atual contém CDX ERC-20 upgradeable com cap de 1 bilhão, compra/recompra ETH com obrigação de backing, staking com APR fixada e rewards reservados, níveis `GameToken` e marketplace NFT UUPS em contrato separado com fee de 0,9%. `npm ci`, compilação limpa e 27 testes passam. A auditoria npm não mostra achados altos/críticos, mas mantém 40 avisos transitivos moderados/baixos.
 
-O projeto não está pronto para deploy. Primeiro é necessário recuperar uma instalação reproduzível e validar a compilação. Em paralelo, a economia das recompensas, o caminho de inicialização, o desenho do proxy e a rede-alvo precisam ser definidos e revisados antes de expandir funcionalidades.
+O projeto não está pronto para deploy de ativos reais: backing e tokenomics precisam de revisão independente; o marketplace `purchaseItem` permanece sem settlement; nenhuma execução de CI remota, auditoria formal ou implantação foi feita neste ciclo.
 
 ## 2. Diagnóstico do projeto
 
-### Estrutura e capacidades encontradas
+### Estrutura e capacidades encontradas no diagnóstico inicial
 
 - `contracts/CaDuCoinXToken.sol`: ERC-20 upgradeable com limite de emissão, mint/burn de owner, staking por quatro durações, recompensas emitidas no saque, pausa herdada, níveis delegados a `GameToken` e compras de itens/NFTs.
 - `contracts/GameToken.sol`: armazenamento de nível por endereço, com inicialização e controle de owner.
@@ -200,7 +202,7 @@ Severidade é uma avaliação estática inicial, não um resultado de auditoria 
 
 **Conclusão do ciclo:** revisão estática concluída; instalação bloqueada, auditoria de dependências reportou advisories, compilação/testes e análise formal de contratos não executados. Não considerar o projeto pronto para deploy com ativos até fechar os achados críticos e repetir as validações.
 
-## 12. Correções de segurança e revalidação — 2026-10-31
+## 12. Correções de segurança e revalidação — 2026-10-31 (status anterior, atualizado pela seção 13)
 
 Esta seção registra a implementação posterior aos achados da seção 11. Os status antigos são mantidos como histórico; para o estado corrente, prevalecem esta seção e o código atual.
 
@@ -241,3 +243,32 @@ Esta seção registra a implementação posterior aos achados da seção 11. Os 
 6. **P2 — marketplace de itens:** implementar ou retirar a interface experimental `purchaseItem`; validar impacto em integrações antes de release.
 
 **Gate de deploy:** o deploy de testnet segue manual e não foi executado. Não considerar pronto para fundos reais enquanto SEC-13, advisories moderados sem disposição documentada, revisão independente e governança operacional permanecerem sem fechamento.
+
+## 13. Recompra opcional com orçamento limitado — 2026-10-31
+
+### Decisão de arquitetura e estado
+
+- A venda primária permanece inicialmente em `0,0000033 ETH/CDX`; o cap é 1 bilhão e staking/GameToken continuam no escopo.
+- O mint administrativo e os rewards de staking são limitados pelo cap; rewards são reservados no início do stake. Não existe colateral ETH integral para supply ou rewards.
+- Recompra é opcional e não garante preço mínimo ou resgate. A administração transfere ETH para o contrato e aloca orçamento manualmente; a tesouraria só retira ETH não alocado. Vendas primárias não alocam orçamento automaticamente.
+- A cotação paga 98% do TWAP de 30 minutos do pool Uniswap V3 CDX/WETH, não 98% do preço primário. O vendedor define `minEthOut`; CDX é queimado e ETH é transferido atomicamente dentro do orçamento disponível.
+- Sem factory, pool reconhecido, histórico de pelo menos 30 minutos ou liquidez harmônica mínima, ativação/cotação falha sem fallback. Buyback começa desativado; a administração deve validar endereço da factory/pool, observações e liquidez antes de ativar.
+- Deploy de testnet implanta o adaptador oracle, mas não configura pool, não aloca orçamento e não ativa recompra. Factory da Optimism Sepolia deve ser fornecida por variável de ambiente e validada contra a rede antes do deploy.
+
+### Reteste requerido
+
+| Check | Estado | Critério |
+| --- | --- | --- |
+| Pool e TWAP | Validado localmente | Testes cobrem par/factory, cotação a 98% do TWAP, histórico insuficiente, liquidez mínima e `minEthOut`; disponibilidade real da testnet continua pendente. |
+| Orçamento | Validado localmente | Testes provam limite de orçamento, retirada apenas do não alocado e rollback de burn/accounting quando o vendedor rejeita ETH. |
+| Cap e staking | Validado localmente | Suíte cobre cap, rewards reservados, mint sem colateral, quatro prazos e saque maduro durante pausa. |
+| Upgrade/layout | Testes locais passaram | Teste de upgrade preserva stakes/reservas e estado de recompra; revisão final de layout antes de publicar continua necessária. |
+| Dependências e checks | Validado localmente | Node 24: `npm ci` passou; compilação limpa passou (59 fontes); `npm test` passou (31 testes); `npm audit --audit-level=high` passou sem altos/críticos, com 43 avisos baixos/moderados (13 baixos, 30 moderados). |
+| Testnet | Não executado | Confirmar factory oficial, suporte/histórico e liquidez do pool CDX/WETH na Optimism Sepolia. Não realizar deploy neste ciclo. |
+
+### Limitações operacionais
+
+- TWAP reduz dependência de preço spot, mas não elimina manipulação econômica em pools com liquidez baixa. O limite de liquidez harmônica é parâmetro operacional e requer análise adequada para a escala de CDX.
+- TWAP não valida valor fundamental nem garante que o contrato tenha orçamento suficiente. `minEthOut` protege o vendedor contra cotação abaixo de sua expectativa; não limita risco de preço futuro ou de governança.
+- Alterar pool ou mínimo de liquidez requer recompra desativada. Configuração/ativação/orçamento devem ficar sob multisig; manter recompra desativada até verificar contrato, pool, observações e fundos.
+- Testes mockados validam a integração ABI e falhas esperadas, mas não provam a existência de histórico ou liquidez adequada em Optimism Sepolia.

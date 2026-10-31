@@ -1,6 +1,6 @@
 const { expect } = require("chai");
 const { ethers, network } = require("hardhat");
-const { deployFixture } = require("./helpers/deploy");
+const { deployFixture, mintBacked } = require("./helpers/deploy");
 
 describe("CaDuCoinXToken staking", function () {
     let owner, alice, token;
@@ -11,7 +11,8 @@ describe("CaDuCoinXToken staking", function () {
     });
 
     async function fundAndStake(amount, duration) {
-        await token.mint(await alice.getAddress(), amount);
+        await mintBacked(token, owner, await alice.getAddress(), amount);
+        const reward = amount * 600n * BigInt(duration) / (10_000n * BigInt(year));
         await token.connect(alice).stake(amount, duration);
     }
 
@@ -26,7 +27,8 @@ describe("CaDuCoinXToken staking", function () {
         let expectedTotal = 0n;
 
         for (const duration of durations) {
-            await token.mint(await alice.getAddress(), amount);
+            await mintBacked(token, owner, await alice.getAddress(), amount);
+            const reward = amount * 600n * BigInt(duration) / (10_000n * BigInt(year));
             await token.connect(alice).stake(amount, duration);
             expectedTotal += amount * 600n * BigInt(duration) / (10_000n * BigInt(year));
         }
@@ -72,9 +74,16 @@ describe("CaDuCoinXToken staking", function () {
         expect(await token.balanceOf(await alice.getAddress())).to.equal(amount + reserved);
     });
 
-    it("rejects new stakes when the cap cannot reserve their rewards", async function () {
+    it("allows staking without ETH collateral while reserving rewards against the supply cap", async function () {
         const amount = ethers.parseUnits("1000", 18);
-        await token.mint(await alice.getAddress(), amount);
+        await mintBacked(token, owner, await alice.getAddress(), amount);
+        await token.connect(alice).stake(amount, year);
+        expect(await token.reservedRewards()).to.equal(amount * 600n / 10_000n);
+    });
+
+    it("rejects new stakes when the token supply cap cannot reserve their rewards", async function () {
+        const amount = ethers.parseUnits("1000", 18);
+        await mintBacked(token, owner, await alice.getAddress(), amount);
         const maxSupply = await token.MAX_SUPPLY();
         const supply = await token.totalSupply();
         await token.mint(await owner.getAddress(), maxSupply - supply);
@@ -87,12 +96,13 @@ describe("CaDuCoinXToken staking", function () {
 
     it("rejects invalid stakes and prevents withdrawal before maturity", async function () {
         const amount = ethers.parseUnits("100", 18);
-        await token.mint(await alice.getAddress(), amount);
+        await mintBacked(token, owner, await alice.getAddress(), amount);
 
         await expect(token.connect(alice).stake(0, year)).to.be.revertedWith("Cannot stake 0");
         await expect(token.connect(alice).stake(amount, 1)).to.be.revertedWith("Invalid staking duration");
 
         const duration = 90 * 86400;
+        const reward = amount * 600n * BigInt(duration) / (10_000n * BigInt(year));
         await token.connect(alice).stake(amount, duration);
         await expect(token.connect(alice).unstake(0)).to.be.revertedWith("Staking period not completed");
         await expect(token.connect(alice).unstake(1)).to.be.revertedWith("Invalid stake index");
